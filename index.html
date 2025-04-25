@@ -290,6 +290,37 @@
       transform: translateX(26px);
     }
     
+    /* Data source indicator */
+    .data-source-indicator {
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      color: #4b5563;
+      margin-bottom: 8px;
+    }
+    
+    .source-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    
+    .source-dot.connected {
+      background-color: #10b981;
+    }
+    
+    .source-dot.disconnected {
+      background-color: #ef4444;
+    }
+    
+    .auto-refresh-status {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 4px;
+      font-style: italic;
+    }
+    
     /* Responsive adjustments */
     @media (max-width: 768px) {
       .stats-container,
@@ -335,13 +366,23 @@
         </button>
       </div>
       
+      <!-- Data source indicator -->
+      <div class="data-source-indicator mb-2" id="data-source-indicator">
+        <div class="source-dot" id="source-dot"></div>
+        <span id="source-text">Checking data source...</span>
+      </div>
+      
       <div class="last-updated mb-3">
         Last updated: <span id="last-updated-time">Loading...</span>
+        <div class="auto-refresh-status hidden" id="auto-refresh-status"></div>
       </div>
       
       <!-- File import option -->
       <div class="file-import mb-4" id="file-import-area">
-        <p class="mb-2">Drag &amp; drop CSV file here or</p>
+        <p class="mb-2">
+          <span id="file-import-primary-text">Drag &amp; drop CSV file here or</span>
+          <span id="file-import-fallback-text" class="hidden">Google Sheets connection failed. You can manually upload data:</span>
+        </p>
         <input type="file" id="csv-file-input" accept=".csv" class="hidden">
         <button id="file-select-button" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 transition-colors">
           Select CSV File
@@ -708,7 +749,15 @@
   
   <script>
     // ======= CONFIGURATION =======
-    const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTqE6c8k9tzjkfiiWEIa9v-OV3eGI9xOSwbJqWx1LzCkXPX1dSnwYMPjQZRMteZRVvjZ1BGfq9Dxaql/pub?gid=0&single=true&output=csv';
+    // Google Sheets configuration - New!
+    const SPREADSHEET_ID = '1Y-koc05vPSjUJqZlo9N759GO69f2UucugFEbnuBJ4BM';
+    const SHEET_NAME = 'DATA';
+    
+    // Generate URL for published sheet export 
+    const SPREADSHEET_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    
+    // Configure auto-refresh interval (in milliseconds, default: 5 minutes)
+    const AUTO_REFRESH_INTERVAL = 5 * 60 * 1000;
     
     // Employee hourly rates configuration
     const EMPLOYEE_HOURLY_RATES = {
@@ -831,6 +880,9 @@
     let activeStartWeek = 'all';
     let activeEndWeek = 'all';
     let lastUpdated = null;
+    let autoRefreshEnabled = false;
+    let autoRefreshIntervalId = null;
+    let dataSourceConnected = false;
     
     // Global display mode (hours or cost)
     let globalDisplayMode = 'hours';
@@ -918,25 +970,104 @@
       document.getElementById('melanie-time-line-chart-title').textContent = `Weekly Time Trends (${displayType})`;
     }
     
-    // Function to fetch data from Google Sheets - now with multiple methods to bypass CORS
-    async function fetchEmployeeData() {
+    // Function to update the data source indicator
+    function updateDataSourceIndicator(status, message) {
+      const indicator = document.getElementById('data-source-indicator');
+      const dot = document.getElementById('source-dot');
+      const text = document.getElementById('source-text');
+      
+      if (status === 'connected') {
+        dot.classList.add('connected');
+        dot.classList.remove('disconnected');
+        dataSourceConnected = true;
+      } else {
+        dot.classList.add('disconnected');
+        dot.classList.remove('connected');
+        dataSourceConnected = false;
+      }
+      
+      text.textContent = message || (status === 'connected' ? 
+        'Connected to Google Sheets data source' : 
+        'Not connected to data source');
+    }
+    
+    // Function to setup auto-refresh
+    function setupAutoRefresh() {
+      // Clear any existing auto-refresh
+      if (autoRefreshIntervalId) {
+        clearInterval(autoRefreshIntervalId);
+        autoRefreshIntervalId = null;
+      }
+      
+      // Only set up auto-refresh if we successfully loaded data
+      if (employeesData.length > 0 && dataSourceConnected) {
+        console.log(`Setting up auto-refresh every ${AUTO_REFRESH_INTERVAL/1000} seconds`);
+        
+        // Set interval for auto-refresh
+        autoRefreshIntervalId = setInterval(async () => {
+          console.log('Auto-refreshing data...');
+          
+          try {
+            // Fetch fresh data
+            const newData = await fetchEmployeeData(true); // true = silent refresh
+            
+            if (newData.length > 0) {
+              employeesData = newData;
+              
+              // Update filtered data based on current filter settings
+              filteredEmployeesData = filterDataByWeekRange(employeesData, activeStartWeek, activeEndWeek);
+              
+              // Update all charts
+              updateAllEmployeeCharts();
+              
+              console.log('Auto-refresh completed successfully');
+            } else {
+              console.warn('Auto-refresh failed: No data returned');
+            }
+          } catch (error) {
+            console.error('Error during auto-refresh:', error);
+          }
+        }, AUTO_REFRESH_INTERVAL);
+        
+        // Store status
+        autoRefreshEnabled = true;
+        
+        // Update UI
+        const autoRefreshStatus = document.getElementById('auto-refresh-status');
+        autoRefreshStatus.textContent = `Auto-refreshes every ${AUTO_REFRESH_INTERVAL/60000} minutes`;
+        autoRefreshStatus.classList.remove('hidden');
+      } else {
+        // Disable auto-refresh UI
+        autoRefreshEnabled = false;
+        const autoRefreshStatus = document.getElementById('auto-refresh-status');
+        autoRefreshStatus.classList.add('hidden');
+      }
+    }
+    
+    // Function to fetch data from Google Sheets - enhanced with multiple methods to bypass CORS
+    async function fetchEmployeeData(silent = false) {
       try {
-        // Show loading indicator
+        // Show loading indicator unless silent refresh
         const loadingMessage = document.getElementById('loading-message');
-        loadingMessage.style.display = 'block';
-        loadingMessage.textContent = 'Loading data from Google Sheets...';
+        if (!silent) {
+          loadingMessage.style.display = 'block';
+          loadingMessage.textContent = 'Loading data from Google Sheets...';
+        }
         
         // Start refresh icon animation
         const refreshIcon = document.getElementById('refresh-icon');
         refreshIcon.classList.add('spin-animation');
         
         let csvText = null;
+        let fetchMethod = '';
         
         try {
-          // Try direct fetch - may fail due to CORS
+          // Method 1: Direct fetch - may fail due to CORS
           const response = await fetch(SPREADSHEET_URL);
           if (response.ok) {
             csvText = await response.text();
+            fetchMethod = 'direct';
+            console.log('Successfully fetched data with direct method');
           }
         } catch (directFetchError) {
           console.log('Direct fetch failed, trying alternate methods...', directFetchError);
@@ -955,18 +1086,46 @@
             
             if (proxyResponse.ok) {
               csvText = await proxyResponse.text();
+              fetchMethod = 'proxy';
+              console.log('Successfully fetched data with CORS proxy');
             }
           } catch (proxyError) {
             console.log('CORS proxy fetch failed...', proxyError);
           }
         }
         
-        // If both methods failed, show message to upload CSV
+        // Try another method with alternative export format
         if (!csvText) {
-          loadingMessage.innerHTML = 
-            'Could not load data from Google Sheets due to browser security restrictions.<br><br>' +
-            'Please use the file upload option to load your CSV file.';
+          try {
+            const alternateUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=0`;
+            const alternateResponse = await fetch(alternateUrl);
+            
+            if (alternateResponse.ok) {
+              csvText = await alternateResponse.text();
+              fetchMethod = 'alternate';
+              console.log('Successfully fetched data with alternate export URL');
+            }
+          } catch (alternateError) {
+            console.log('Alternate export URL fetch failed...', alternateError);
+          }
+        }
+        
+        // If all methods failed, show message to upload CSV
+        if (!csvText) {
+          updateDataSourceIndicator('disconnected', 'Could not connect to Google Sheets');
+          
+          if (!silent) {
+            loadingMessage.innerHTML = 
+              'Could not load data from Google Sheets due to browser security restrictions.<br><br>' +
+              'Please use the file upload option to load your CSV file.';
+          }
+          
           refreshIcon.classList.remove('spin-animation');
+          
+          // Show fallback text in file import area
+          document.getElementById('file-import-primary-text').classList.add('hidden');
+          document.getElementById('file-import-fallback-text').classList.remove('hidden');
+          
           return [];
         }
         
@@ -985,6 +1144,13 @@
           throw new Error('No data found in the CSV');
         }
         
+        // Update data source indicator
+        updateDataSourceIndicator('connected', `Connected to Google Sheets via ${fetchMethod} method`);
+        
+        // Show primary text in file import area
+        document.getElementById('file-import-primary-text').classList.remove('hidden');
+        document.getElementById('file-import-fallback-text').classList.add('hidden');
+        
         // Update last updated time
         lastUpdated = new Date();
         document.getElementById('last-updated-time').textContent = lastUpdated.toLocaleString();
@@ -992,18 +1158,37 @@
         // Update week range dropdowns
         updateWeekRangeOptions(parseResult.data);
         
+        // Setup auto-refresh if not already enabled
+        if (!autoRefreshEnabled) {
+          setupAutoRefresh();
+        }
+        
         // Stop refresh icon animation
         refreshIcon.classList.remove('spin-animation');
         
         // Hide loading message
-        loadingMessage.style.display = 'none';
+        if (!silent) {
+          loadingMessage.style.display = 'none';
+        }
         
         return parseResult.data;
       } catch (error) {
         console.error('Error fetching or parsing data:', error);
-        document.getElementById('loading-message').innerHTML = 
-          `Error: ${error.message} <br><br>Please try using the file upload option instead.`;
+        
+        // Update data source indicator
+        updateDataSourceIndicator('disconnected', 'Error connecting to Google Sheets');
+        
+        if (!silent) {
+          document.getElementById('loading-message').innerHTML = 
+            `Error: ${error.message} <br><br>Please try using the file upload option instead.`;
+        }
+        
         document.getElementById('refresh-icon').classList.remove('spin-animation');
+        
+        // Show fallback text in file import area
+        document.getElementById('file-import-primary-text').classList.add('hidden');
+        document.getElementById('file-import-fallback-text').classList.remove('hidden');
+        
         return [];
       }
     }
@@ -1036,6 +1221,9 @@
           // Update global data
           employeesData = results.data;
           filteredEmployeesData = [...employeesData];
+          
+          // Update data source indicator
+          updateDataSourceIndicator('disconnected', 'Using manually uploaded CSV file');
           
           // Update last updated time
           lastUpdated = new Date();
@@ -1224,7 +1412,7 @@
         updateAllEmployeeCharts();
       });
       
-      // Refresh button
+      // Refresh button - Updated
       refreshButton.addEventListener('click', async () => {
         // Fetch fresh data
         const newData = await fetchEmployeeData();
@@ -3004,6 +3192,9 @@
       // Initialize filter functionality and file upload
       initializeFilter();
       
+      // Init data source indicator
+      updateDataSourceIndicator('disconnected', 'Connecting to Google Sheets...');
+      
       // Try to fetch data from Google Sheets
       employeesData = await fetchEmployeeData();
       
@@ -3011,9 +3202,23 @@
       if (employeesData.length > 0) {
         filteredEmployeesData = [...employeesData];
         updateAllEmployeeCharts();
+        
+        // Setup auto-refresh if connected
+        if (dataSourceConnected) {
+          setupAutoRefresh();
+        }
       } else {
-        // If fetching failed, keep the loading message visible
-        // User will need to upload a CSV file
+        // If fetching failed, keep the loading message visible with instructions
+        document.getElementById('loading-message').innerHTML = 
+          'Could not load data from Google Sheets.<br><br>' +
+          'Please use the file upload option to load your CSV file.';
+        
+        // Update data source indicator
+        updateDataSourceIndicator('disconnected', 'Not connected to data source');
+        
+        // Show fallback text in file import area
+        document.getElementById('file-import-primary-text').classList.add('hidden');
+        document.getElementById('file-import-fallback-text').classList.remove('hidden');
       }
     });
   </script>
