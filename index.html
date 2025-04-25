@@ -991,6 +991,31 @@
         'Not connected to data source');
     }
     
+    // Function to update filter display - NEW FUNCTION
+    function updateFilterDisplay() {
+      const activeFilter = document.getElementById('active-filter');
+      const filterText = document.getElementById('filter-text');
+      
+      console.log(`Updating filter display. Active filters: ${activeStartWeek} to ${activeEndWeek}`);
+      
+      if (activeStartWeek === 'all' && activeEndWeek === 'all') {
+        activeFilter.classList.add('hidden');
+      } else {
+        activeFilter.classList.remove('hidden');
+        let filterString = '';
+        
+        if (activeStartWeek === 'all') {
+          filterString = `Up to ${activeEndWeek}`;
+        } else if (activeEndWeek === 'all') {
+          filterString = `From ${activeStartWeek} onwards`;
+        } else {
+          filterString = `${activeStartWeek} to ${activeEndWeek}`;
+        }
+        
+        filterText.textContent = filterString;
+      }
+    }
+    
     // Function to setup auto-refresh
     function setupAutoRefresh() {
       // Clear any existing auto-refresh
@@ -1295,11 +1320,14 @@
     
     // Function to filter employee data by week range
     function filterDataByWeekRange(data, startWeek, endWeek) {
+      console.log(`Filtering data with startWeek=${startWeek}, endWeek=${endWeek}`);
+      
       if (startWeek === 'all' && endWeek === 'all') {
+        console.log(`No filtering needed, returning all ${data.length} records`);
         return [...data];
       }
       
-      return data.filter(row => {
+      const filteredData = data.filter(row => {
         const weekRange = row['Week Range'];
         
         // If only start week is specified
@@ -1315,6 +1343,9 @@
         // If both are specified
         return compareWeekRanges(weekRange, startWeek) >= 0 && compareWeekRanges(weekRange, endWeek) <= 0;
       });
+      
+      console.log(`Filtered data contains ${filteredData.length} records`);
+      return filteredData;
     }
     
     // Function to update all employee charts with filtered data
@@ -1332,25 +1363,7 @@
       initializeEmployeeCharts('melanie');
       
       // Update filter display
-      const activeFilter = document.getElementById('active-filter');
-      const filterText = document.getElementById('filter-text');
-      
-      if (activeStartWeek === 'all' && activeEndWeek === 'all') {
-        activeFilter.classList.add('hidden');
-      } else {
-        activeFilter.classList.remove('hidden');
-        let filterString = '';
-        
-        if (activeStartWeek === 'all') {
-          filterString = `Up to ${activeEndWeek}`;
-        } else if (activeEndWeek === 'all') {
-          filterString = `From ${activeStartWeek} onwards`;
-        } else {
-          filterString = `${activeStartWeek} to ${activeEndWeek}`;
-        }
-        
-        filterText.textContent = filterString;
-      }
+      updateFilterDisplay();
     }
     
     // Function to validate the week selection
@@ -1383,7 +1396,7 @@
       const categoryLabel = document.getElementById('global-category-label');
       const taskLabel = document.getElementById('global-task-label');
       
-      // Apply filter button
+      // Apply filter button - IMPROVED
       applyFilterButton.addEventListener('click', () => {
         const startWeek = startWeekSelect.value;
         const endWeek = endWeekSelect.value;
@@ -1393,15 +1406,24 @@
           return;
         }
         
+        console.log(`Applying filter: ${startWeek} to ${endWeek}`);
+        
+        // Update active filter variables
         activeStartWeek = startWeek;
         activeEndWeek = endWeek;
         
+        // Recalculate filtered data
         filteredEmployeesData = filterDataByWeekRange(employeesData, startWeek, endWeek);
+        console.log(`Filter applied, ${filteredEmployeesData.length} records now in filtered data`);
+        
+        // Update all charts with new filtered data
         updateAllEmployeeCharts();
       });
       
-      // Reset filter button
+      // Reset filter button - IMPROVED
       resetFilterButton.addEventListener('click', () => {
+        console.log('Resetting filter');
+        
         startWeekSelect.value = 'all';
         endWeekSelect.value = 'all';
         
@@ -1409,6 +1431,9 @@
         activeEndWeek = 'all';
         
         filteredEmployeesData = [...employeesData];
+        console.log(`Filter reset, using all ${filteredEmployeesData.length} records`);
+        
+        // Update all charts with full data
         updateAllEmployeeCharts();
       });
       
