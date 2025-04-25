@@ -1,0 +1,3021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Work Time Analysis Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js for visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  
+  <!-- PAPA Parse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  
+  <style>
+    /* Same style as before */
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f9fafb;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    .dashboard-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dashboard-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #1f2937;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .stat-card {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+    
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 4px;
+    }
+    
+    .stat-value.green {
+      color: #059669;
+    }
+    
+    .stat-value.purple {
+      color: #7c3aed;
+    }
+    
+    .stat-subtitle {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    
+    .cost-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #059669;
+      margin-top: 8px;
+    }
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    .chart-container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+    
+    .full-width-chart {
+      grid-column: span 2;
+    }
+    
+    /* Tab styling */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+    
+    .tab.active {
+      border-bottom: 2px solid #2563eb;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    
+    .tab:hover:not(.active) {
+      border-bottom: 2px solid #93c5fd;
+      color: #3b82f6;
+    }
+    
+    .employee-dashboard {
+      display: none;
+    }
+    
+    .employee-dashboard.active {
+      display: block;
+    }
+    
+    .employee-notice {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+      font-size: 18px;
+    }
+    
+    .week-selector {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 24px;
+    }
+    
+    .loading-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      z-index: 1000;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .last-updated {
+      text-align: right;
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: -20px;
+      margin-bottom: 10px;
+    }
+
+    /* File import */
+    .file-import {
+      margin-top: 10px;
+      padding: 10px;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .file-import.active {
+      border-color: #2563eb;
+      background-color: rgba(37, 99, 235, 0.05);
+    }
+
+    /* Animation for refresh button */
+    .spin-animation {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    /* Chart toggle switch styling */
+    .toggle-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: -5px;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    /* Global toggle styling */
+    .global-toggle-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 15px 0;
+      gap: 8px;
+      padding: 10px;
+      background-color: #f8fafc;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .toggle-label {
+      font-size: 12px;
+      color: #6b7280;
+      cursor: pointer;
+    }
+    
+    .toggle-label.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .global-toggle-label {
+      font-size: 14px;
+      color: #6b7280;
+      cursor: pointer;
+    }
+    
+    .global-toggle-label.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+      background-color: #e5e7eb;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .toggle-switch.active {
+      background-color: #3b82f6;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(26px);
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .stats-container,
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .full-width-chart {
+        grid-column: auto;
+      }
+      
+      .tabs {
+        flex-wrap: wrap;
+      }
+      
+      .tab {
+        flex: 1 0 auto;
+        text-align: center;
+        padding: 10px;
+      }
+    }
+
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="dashboard-title">Employee Work Time Analysis</h1>
+    
+    <!-- Date/Week Range Selector -->
+    <div class="week-selector bg-white p-4 rounded-lg shadow mb-6">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-semibold">Date/Week Range Filter</h2>
+        
+        <!-- Refresh button -->
+        <button id="refresh-button" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors flex items-center">
+          <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+          </svg>
+          Refresh Data
+        </button>
+      </div>
+      
+      <div class="last-updated mb-3">
+        Last updated: <span id="last-updated-time">Loading...</span>
+      </div>
+      
+      <!-- File import option -->
+      <div class="file-import mb-4" id="file-import-area">
+        <p class="mb-2">Drag &amp; drop CSV file here or</p>
+        <input type="file" id="csv-file-input" accept=".csv" class="hidden">
+        <button id="file-select-button" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 transition-colors">
+          Select CSV File
+        </button>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">From Week:</label>
+          <select id="start-week" class="border rounded p-2 w-full">
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">To Week:</label>
+          <select id="end-week" class="border rounded p-2 w-full">
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        
+        <div class="flex items-end">
+          <button id="apply-filter" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors">
+            Apply Filter
+          </button>
+        </div>
+        
+        <div class="flex items-end">
+          <button id="reset-filter" class="bg-gray-200 text-gray-800 py-2 px-4 rounded hover:bg-gray-300 transition-colors">
+            Reset
+          </button>
+        </div>
+      </div>
+      
+      <div id="active-filter" class="mt-3 text-sm hidden">
+        <span class="font-medium">Active Filter:</span>
+        <span id="filter-text" class="text-blue-600"></span>
+      </div>
+    </div>
+    
+    <!-- Global Toggles -->
+    <div class="global-toggle-container">
+      <span class="global-toggle-label active" id="global-hours-label">Display All Charts by Hours</span>
+      <div class="toggle-switch" id="global-display-toggle">
+        <div class="toggle-slider"></div>
+      </div>
+      <span class="global-toggle-label" id="global-cost-label">Display All Charts by Cost</span>
+    </div>
+    
+    <!-- Category/Task Toggle - NEW -->
+    <div class="global-toggle-container">
+      <span class="global-toggle-label active" id="global-category-label">View by Category</span>
+      <div class="toggle-switch" id="category-task-toggle">
+        <div class="toggle-slider"></div>
+      </div>
+      <span class="global-toggle-label" id="global-task-label">View by Task</span>
+    </div>
+    
+    <!-- Employee tabs -->
+    <div class="tabs">
+      <div class="tab active" data-employee="all">All Employees</div>
+      <div class="tab" data-employee="victoria">Victoria</div>
+      <div class="tab" data-employee="kyle">Kyle</div>
+      <div class="tab" data-employee="brooke">Brooke</div>
+      <div class="tab" data-employee="melanie">Melanie</div>
+    </div>
+    
+    <!-- All Employees Dashboard -->
+    <div id="all-dashboard" class="employee-dashboard active">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Team Hours</h2>
+          <p class="stat-value" id="all-total-hours">--</p>
+          <p class="stat-subtitle" id="all-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="all-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="all-most-time-activity">--</p>
+          <p class="stat-subtitle" id="all-most-time-hours">Loading...</p>
+          <p class="cost-text" id="all-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Team Weekly Average</h2>
+          <p class="stat-value purple" id="all-weekly-average">--</p>
+          <p class="stat-subtitle" id="all-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="all-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="all-pie-chart-title">Team Category Distribution (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="all-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="all-bar-chart-title">Team Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="all-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Employee Time Allocation Comparison -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="team-comparison-chart-title">Employee Time Allocation Comparison (Hours)</h2>
+          <div style="position: relative; height: 350px;">
+            <canvas id="team-comparisonChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Trends Chart if we have multiple weeks -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="all-time-line-chart-title">Team Weekly Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="all-timeLineChart-container">
+            <canvas id="all-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="all-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Victoria's Dashboard -->
+    <div id="victoria-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="victoria-total-hours">--</p>
+          <p class="stat-subtitle" id="victoria-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="victoria-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="victoria-most-time-activity">--</p>
+          <p class="stat-subtitle" id="victoria-most-time-hours">Loading...</p>
+          <p class="cost-text" id="victoria-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="victoria-weekly-average">--</p>
+          <p class="stat-subtitle" id="victoria-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="victoria-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="victoria-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="victoria-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="victoria-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="victoria-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="victoria-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="victoria-timeLineChart-container">
+            <canvas id="victoria-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="victoria-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Kyle's Dashboard -->
+    <div id="kyle-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="kyle-total-hours">--</p>
+          <p class="stat-subtitle" id="kyle-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="kyle-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="kyle-most-time-activity">--</p>
+          <p class="stat-subtitle" id="kyle-most-time-hours">Loading...</p>
+          <p class="cost-text" id="kyle-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="kyle-weekly-average">--</p>
+          <p class="stat-subtitle" id="kyle-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="kyle-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="kyle-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="kyle-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="kyle-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="kyle-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="kyle-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="kyle-timeLineChart-container">
+            <canvas id="kyle-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="kyle-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Brooke's Dashboard -->
+    <div id="brooke-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="brooke-total-hours">--</p>
+          <p class="stat-subtitle" id="brooke-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="brooke-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="brooke-most-time-activity">--</p>
+          <p class="stat-subtitle" id="brooke-most-time-hours">Loading...</p>
+          <p class="cost-text" id="brooke-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="brooke-weekly-average">--</p>
+          <p class="stat-subtitle" id="brooke-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="brooke-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="brooke-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="brooke-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="brooke-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="brooke-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="brooke-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="brooke-timeLineChart-container">
+            <canvas id="brooke-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="brooke-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Melanie's Dashboard -->
+    <div id="melanie-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="melanie-total-hours">--</p>
+          <p class="stat-subtitle" id="melanie-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="melanie-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="melanie-most-time-activity">--</p>
+          <p class="stat-subtitle" id="melanie-most-time-hours">Loading...</p>
+          <p class="cost-text" id="melanie-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="melanie-weekly-average">--</p>
+          <p class="stat-subtitle" id="melanie-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="melanie-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="melanie-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="melanie-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="melanie-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="melanie-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="melanie-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="melanie-timeLineChart-container">
+            <canvas id="melanie-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="melanie-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading message element -->
+  <div id="loading-message" class="loading-message">Loading dashboard data...</div>
+  
+  <script>
+    // ======= CONFIGURATION =======
+    const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTqE6c8k9tzjkfiiWEIa9v-OV3eGI9xOSwbJqWx1LzCkXPX1dSnwYMPjQZRMteZRVvjZ1BGfq9Dxaql/pub?gid=0&single=true&output=csv';
+    
+    // Employee hourly rates configuration
+    const EMPLOYEE_HOURLY_RATES = {
+      victoria: 16.50,  // Adjust these values as needed
+      kyle: 20.00,
+      brooke: 25.00,
+      melanie: 25.00,
+      default: 16.50   // Default rate if employee not specified
+    };
+
+    // Helper function to get hourly rate for a specific employee
+    function getHourlyRate(employeeName) {
+      if (!employeeName) return EMPLOYEE_HOURLY_RATES.default;
+      // Convert to lowercase and remove any email domain if present
+      const normalizedName = employeeName.toLowerCase().split('@')[0];
+      return EMPLOYEE_HOURLY_RATES[normalizedName] || EMPLOYEE_HOURLY_RATES.default;
+    }
+    
+    // Define category base colors for pie chart
+    const CATEGORY_BASE_COLORS = {
+      'Social Media': '#247c26', // Green
+      'Business Development': '#0066cc', // Blue
+      'Newsletter': '#ff8c00', // Orange
+      'Congress': '#cc0000', // Red
+      'Meetings and Admin': '#666666', // Gray
+      'Miscellaneous': '#9370db' // Purple for any other category
+    };
+    
+    // Define the exact task order for the pie chart
+    const TASK_ORDER = [
+      'BD - Research',
+      'BD - Emailing',
+      'BD - Calls',
+      'Congress - Research',
+      'Congress - Emailing',
+      'Congress - Calls',
+      'Social Management',
+      'Social Content - Research',
+      'Social Content - Scripting',
+      'Social Content - Recording',
+      'Social Content - Video Editing',
+      'Social Content - Graphic Design',
+      'Influencer Outreach',
+      'Newsletter - Writing/Editing',
+      'Newsletter - Operations',
+      'Misc. Content',
+      'Misc. Research',
+      'Internal Meetings',
+      'Admin'
+    ];
+    
+    // Cache for task colors to ensure consistency
+    const TASK_COLOR_CACHE = {};
+    const TASK_BORDER_COLOR_CACHE = {};
+    
+    // Cache for category colors to ensure consistency across different views
+    const CATEGORY_COLOR_CACHE = {};
+    const CATEGORY_BORDER_COLOR_CACHE = {};
+    
+    // Function to generate shades of a color for tasks
+    function adjustColor(hex, percent) {
+      // Remove the # if present
+      hex = hex.replace(/^#/, '');
+      
+      // Convert to RGB
+      let r = parseInt(hex.substring(0, 2), 16);
+      let g = parseInt(hex.substring(2, 4), 16);
+      let b = parseInt(hex.substring(4, 6), 16);
+      
+      // Adjust color
+      r = Math.round(r * (100 + percent) / 100);
+      g = Math.round(g * (100 + percent) / 100);
+      b = Math.round(b * (100 + percent) / 100);
+      
+      // Ensure values are in valid range
+      r = Math.min(255, Math.max(0, r));
+      g = Math.min(255, Math.max(0, g));
+      b = Math.min(255, Math.max(0, b));
+      
+      // Convert back to hex
+      return `#${(r.toString(16).padStart(2, '0'))}${(g.toString(16).padStart(2, '0'))}${(b.toString(16).padStart(2, '0'))}`;
+    }
+    
+    // Initialize task and category color caches
+    function initializeColorCaches() {
+      // First, set up colors for each category
+      Object.keys(CATEGORY_BASE_COLORS).forEach(category => {
+        const baseColor = CATEGORY_BASE_COLORS[category];
+        CATEGORY_COLOR_CACHE[category] = baseColor + 'CC'; // Add transparency
+        CATEGORY_BORDER_COLOR_CACHE[category] = baseColor;
+      });
+      
+      // Now, set up colors for each task based on its category
+      Object.entries(categoriesByType).forEach(([category, tasks]) => {
+        const baseColor = CATEGORY_BASE_COLORS[category];
+        
+        tasks.forEach((taskName, index) => {
+          // Calculate percentage adjustment based on position in category
+          let percentAdjustment;
+          if (tasks.length === 1) {
+            percentAdjustment = 0; // If only one task, use base color
+          } else {
+            const midPoint = Math.floor(tasks.length / 2);
+            const distanceFromMid = index - midPoint;
+            percentAdjustment = distanceFromMid * 15; // Adjust by 15% per step
+          }
+          
+          // Apply the color adjustment
+          const adjustedColor = adjustColor(baseColor, percentAdjustment);
+          TASK_COLOR_CACHE[taskName] = adjustedColor + 'CC'; // Add transparency
+          TASK_BORDER_COLOR_CACHE[taskName] = adjustedColor;
+        });
+      });
+    }
+    // ============================
+    
+    // Global variables
+    let employeesData = [];
+    let filteredEmployeesData = [];
+    let activeStartWeek = 'all';
+    let activeEndWeek = 'all';
+    let lastUpdated = null;
+    
+    // Global display mode (hours or cost)
+    let globalDisplayMode = 'hours';
+    
+    // Global view level (category or task) - NEW VARIABLE
+    let globalLevelMode = 'category';
+    
+    // Store chart instances
+    const charts = {
+      all: { pieChart: null, barChart: null, timeLineChart: null, comparisonChart: null },
+      victoria: { pieChart: null, barChart: null, timeLineChart: null },
+      kyle: { pieChart: null, barChart: null, timeLineChart: null },
+      brooke: { pieChart: null, barChart: null, timeLineChart: null },
+      melanie: { pieChart: null, barChart: null, timeLineChart: null }
+    };
+    
+    // Group categories by type
+    const categoriesByType = {
+      'Business Development': ['BD - Research', 'BD - Emailing', 'BD - Calls'],
+      'Congress': ['Congress - Research', 'Congress - Emailing', 'Congress - Calls'],
+      'Social Media': ['Social Management', 'Social Content - Research', 'Social Content - Scripting', 
+                      'Social Content - Recording', 'Social Content - Video Editing', 'Social Content - Graphic Design',
+                      'Influencer Outreach'],
+      'Newsletter': ['Newsletter - Writing/Editing', 'Newsletter - Operations'],
+      'Miscellaneous': ['Misc. Content', 'Misc. Research'],
+      'Meetings and Admin': ['Internal Meetings', 'Admin']
+    };
+    
+    // Date parsing helpers
+    function parseStartDateFromWeekRange(weekRange) {
+      try {
+        // Format example: "Mar 10 – Mar 15 (2025)"
+        const match = weekRange.match(/([A-Za-z]+)\s+(\d+)/);
+        if (match) {
+          const month = match[1];
+          const day = parseInt(match[2]);
+          const year = weekRange.match(/\((\d{4})\)/) ? parseInt(weekRange.match(/\((\d{4})\)/)[1]) : new Date().getFullYear();
+          
+          const monthMap = {
+            'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+            'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+          };
+          
+          return new Date(year, monthMap[month], day);
+        }
+        return new Date(0); // Default to epoch if parsing fails
+      } catch (e) {
+        console.error("Error parsing date from:", weekRange, e);
+        return new Date(0);
+      }
+    }
+    
+    // Helper to compare two week ranges
+    function compareWeekRanges(a, b) {
+      const dateA = parseStartDateFromWeekRange(a);
+      const dateB = parseStartDateFromWeekRange(b);
+      return dateA - dateB;
+    }
+    
+    // Function to update chart titles based on display mode
+    function updateChartTitles() {
+      const displayType = globalDisplayMode === 'hours' ? 'Hours' : 'Cost';
+      const levelType = globalLevelMode === 'category' ? 'Category' : 'Task';
+      
+      // Update all chart titles
+      document.getElementById('all-pie-chart-title').textContent = `Team ${levelType} Distribution (${displayType})`;
+      document.getElementById('all-bar-chart-title').textContent = `Team ${levelType} Breakdown (${displayType})`;
+      document.getElementById('team-comparison-chart-title').textContent = `Employee Time Allocation Comparison (${displayType})`;
+      document.getElementById('all-time-line-chart-title').textContent = `Team Weekly Trends (${displayType})`;
+      
+      document.getElementById('victoria-pie-chart-title').textContent = `Time Distribution by ${levelType} (${displayType})`;
+      document.getElementById('victoria-bar-chart-title').textContent = `${levelType} Breakdown (${displayType})`;
+      document.getElementById('victoria-time-line-chart-title').textContent = `Weekly Time Trends (${displayType})`;
+      
+      document.getElementById('kyle-pie-chart-title').textContent = `Time Distribution by ${levelType} (${displayType})`;
+      document.getElementById('kyle-bar-chart-title').textContent = `${levelType} Breakdown (${displayType})`;
+      document.getElementById('kyle-time-line-chart-title').textContent = `Weekly Time Trends (${displayType})`;
+      
+      document.getElementById('brooke-pie-chart-title').textContent = `Time Distribution by ${levelType} (${displayType})`;
+      document.getElementById('brooke-bar-chart-title').textContent = `${levelType} Breakdown (${displayType})`;
+      document.getElementById('brooke-time-line-chart-title').textContent = `Weekly Time Trends (${displayType})`;
+      
+      document.getElementById('melanie-pie-chart-title').textContent = `Time Distribution by ${levelType} (${displayType})`;
+      document.getElementById('melanie-bar-chart-title').textContent = `${levelType} Breakdown (${displayType})`;
+      document.getElementById('melanie-time-line-chart-title').textContent = `Weekly Time Trends (${displayType})`;
+    }
+    
+    // Function to fetch data from Google Sheets - now with multiple methods to bypass CORS
+    async function fetchEmployeeData() {
+      try {
+        // Show loading indicator
+        const loadingMessage = document.getElementById('loading-message');
+        loadingMessage.style.display = 'block';
+        loadingMessage.textContent = 'Loading data from Google Sheets...';
+        
+        // Start refresh icon animation
+        const refreshIcon = document.getElementById('refresh-icon');
+        refreshIcon.classList.add('spin-animation');
+        
+        let csvText = null;
+        
+        try {
+          // Try direct fetch - may fail due to CORS
+          const response = await fetch(SPREADSHEET_URL);
+          if (response.ok) {
+            csvText = await response.text();
+          }
+        } catch (directFetchError) {
+          console.log('Direct fetch failed, trying alternate methods...', directFetchError);
+        }
+        
+        // If direct fetch failed, try with a CORS proxy
+        if (!csvText) {
+          try {
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/' + SPREADSHEET_URL;
+            const proxyResponse = await fetch(proxyUrl, {
+              headers: {
+                'Origin': window.location.origin,
+                'X-Requested-With': 'XMLHttpRequest'
+              }
+            });
+            
+            if (proxyResponse.ok) {
+              csvText = await proxyResponse.text();
+            }
+          } catch (proxyError) {
+            console.log('CORS proxy fetch failed...', proxyError);
+          }
+        }
+        
+        // If both methods failed, show message to upload CSV
+        if (!csvText) {
+          loadingMessage.innerHTML = 
+            'Could not load data from Google Sheets due to browser security restrictions.<br><br>' +
+            'Please use the file upload option to load your CSV file.';
+          refreshIcon.classList.remove('spin-animation');
+          return [];
+        }
+        
+        // Parse CSV using Papa Parse
+        const parseResult = Papa.parse(csvText, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true
+        });
+        
+        if (parseResult.errors.length > 0) {
+          console.warn('CSV parsing had errors:', parseResult.errors);
+        }
+        
+        if (parseResult.data.length === 0) {
+          throw new Error('No data found in the CSV');
+        }
+        
+        // Update last updated time
+        lastUpdated = new Date();
+        document.getElementById('last-updated-time').textContent = lastUpdated.toLocaleString();
+        
+        // Update week range dropdowns
+        updateWeekRangeOptions(parseResult.data);
+        
+        // Stop refresh icon animation
+        refreshIcon.classList.remove('spin-animation');
+        
+        // Hide loading message
+        loadingMessage.style.display = 'none';
+        
+        return parseResult.data;
+      } catch (error) {
+        console.error('Error fetching or parsing data:', error);
+        document.getElementById('loading-message').innerHTML = 
+          `Error: ${error.message} <br><br>Please try using the file upload option instead.`;
+        document.getElementById('refresh-icon').classList.remove('spin-animation');
+        return [];
+      }
+    }
+    
+    // Process file upload
+    function handleFileUpload(file) {
+      const loadingMessage = document.getElementById('loading-message');
+      loadingMessage.style.display = 'block';
+      loadingMessage.textContent = 'Processing CSV file...';
+      
+      const refreshIcon = document.getElementById('refresh-icon');
+      refreshIcon.classList.add('spin-animation');
+      
+      // Use Papa Parse to parse the CSV
+      Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          if (results.errors.length > 0) {
+            console.warn('CSV parsing had errors:', results.errors);
+          }
+          
+          if (results.data.length === 0) {
+            loadingMessage.textContent = 'No data found in the CSV file.';
+            refreshIcon.classList.remove('spin-animation');
+            return;
+          }
+          
+          // Update global data
+          employeesData = results.data;
+          filteredEmployeesData = [...employeesData];
+          
+          // Update last updated time
+          lastUpdated = new Date();
+          document.getElementById('last-updated-time').textContent = lastUpdated.toLocaleString();
+          
+          // Update week range dropdowns
+          updateWeekRangeOptions(results.data);
+          
+          // Update all charts
+          updateAllEmployeeCharts();
+          
+          // Hide loading message
+          loadingMessage.style.display = 'none';
+          refreshIcon.classList.remove('spin-animation');
+        },
+        error: function(error) {
+          console.error('Error parsing CSV:', error);
+          loadingMessage.textContent = 'Error parsing CSV file. Please check the file format.';
+          refreshIcon.classList.remove('spin-animation');
+        }
+      });
+    }
+    
+    // Function to update week range dropdown options
+    function updateWeekRangeOptions(data) {
+      const weeks = [...new Set(data.map(row => row['Week Range']))].sort(compareWeekRanges);
+      
+      const startWeekSelect = document.getElementById('start-week');
+      const endWeekSelect = document.getElementById('end-week');
+      
+      // Save current selections
+      const currentStartWeek = startWeekSelect.value;
+      const currentEndWeek = endWeekSelect.value;
+      
+      // Clear existing options except "All Time"
+      while (startWeekSelect.options.length > 1) {
+        startWeekSelect.remove(1);
+      }
+      
+      while (endWeekSelect.options.length > 1) {
+        endWeekSelect.remove(1);
+      }
+      
+      // Add options for each week
+      weeks.forEach(week => {
+        const startOption = document.createElement('option');
+        startOption.value = week;
+        startOption.textContent = week;
+        startWeekSelect.appendChild(startOption);
+        
+        const endOption = document.createElement('option');
+        endOption.value = week;
+        endOption.textContent = week;
+        endWeekSelect.appendChild(endOption);
+      });
+      
+      // Restore selections if they exist in the new options
+      if (weeks.includes(currentStartWeek)) {
+        startWeekSelect.value = currentStartWeek;
+      }
+      
+      if (weeks.includes(currentEndWeek)) {
+        endWeekSelect.value = currentEndWeek;
+      } else if (weeks.length > 0) {
+        // Default to the latest week for end week
+        endWeekSelect.value = weeks[weeks.length - 1];
+      }
+    }
+    
+    // Function to filter employee data by week range
+    function filterDataByWeekRange(data, startWeek, endWeek) {
+      if (startWeek === 'all' && endWeek === 'all') {
+        return [...data];
+      }
+      
+      return data.filter(row => {
+        const weekRange = row['Week Range'];
+        
+        // If only start week is specified
+        if (startWeek !== 'all' && endWeek === 'all') {
+          return compareWeekRanges(weekRange, startWeek) >= 0;
+        }
+        
+        // If only end week is specified
+        if (startWeek === 'all' && endWeek !== 'all') {
+          return compareWeekRanges(weekRange, endWeek) <= 0;
+        }
+        
+        // If both are specified
+        return compareWeekRanges(weekRange, startWeek) >= 0 && compareWeekRanges(weekRange, endWeek) <= 0;
+      });
+    }
+    
+    // Function to update all employee charts with filtered data
+    function updateAllEmployeeCharts() {
+      // Update chart titles based on display mode first
+      updateChartTitles();
+      
+      // Initialize the team dashboard first
+      initializeTeamDashboard();
+      
+      // Then initialize individual employee dashboards
+      initializeEmployeeCharts('victoria');
+      initializeEmployeeCharts('kyle');
+      initializeEmployeeCharts('brooke');
+      initializeEmployeeCharts('melanie');
+      
+      // Update filter display
+      const activeFilter = document.getElementById('active-filter');
+      const filterText = document.getElementById('filter-text');
+      
+      if (activeStartWeek === 'all' && activeEndWeek === 'all') {
+        activeFilter.classList.add('hidden');
+      } else {
+        activeFilter.classList.remove('hidden');
+        let filterString = '';
+        
+        if (activeStartWeek === 'all') {
+          filterString = `Up to ${activeEndWeek}`;
+        } else if (activeEndWeek === 'all') {
+          filterString = `From ${activeStartWeek} onwards`;
+        } else {
+          filterString = `${activeStartWeek} to ${activeEndWeek}`;
+        }
+        
+        filterText.textContent = filterString;
+      }
+    }
+    
+    // Function to validate the week selection
+    function validateWeekSelection(startWeek, endWeek) {
+      if (startWeek === 'all' || endWeek === 'all') {
+        return true;
+      }
+      
+      return compareWeekRanges(startWeek, endWeek) <= 0;
+    }
+    
+    // Function to initialize the filter and file upload event listeners
+    function initializeFilter() {
+      const startWeekSelect = document.getElementById('start-week');
+      const endWeekSelect = document.getElementById('end-week');
+      const applyFilterButton = document.getElementById('apply-filter');
+      const resetFilterButton = document.getElementById('reset-filter');
+      const refreshButton = document.getElementById('refresh-button');
+      const fileInput = document.getElementById('csv-file-input');
+      const fileImportArea = document.getElementById('file-import-area');
+      const fileSelectButton = document.getElementById('file-select-button');
+      
+      // Global display toggle setup
+      const globalToggleSwitch = document.getElementById('global-display-toggle');
+      const globalHoursLabel = document.getElementById('global-hours-label');
+      const globalCostLabel = document.getElementById('global-cost-label');
+      
+      // Category/Task toggle setup - NEW
+      const categoryTaskToggle = document.getElementById('category-task-toggle');
+      const categoryLabel = document.getElementById('global-category-label');
+      const taskLabel = document.getElementById('global-task-label');
+      
+      // Apply filter button
+      applyFilterButton.addEventListener('click', () => {
+        const startWeek = startWeekSelect.value;
+        const endWeek = endWeekSelect.value;
+        
+        if (!validateWeekSelection(startWeek, endWeek)) {
+          alert('Invalid selection: Start week must be before or equal to end week');
+          return;
+        }
+        
+        activeStartWeek = startWeek;
+        activeEndWeek = endWeek;
+        
+        filteredEmployeesData = filterDataByWeekRange(employeesData, startWeek, endWeek);
+        updateAllEmployeeCharts();
+      });
+      
+      // Reset filter button
+      resetFilterButton.addEventListener('click', () => {
+        startWeekSelect.value = 'all';
+        endWeekSelect.value = 'all';
+        
+        activeStartWeek = 'all';
+        activeEndWeek = 'all';
+        
+        filteredEmployeesData = [...employeesData];
+        updateAllEmployeeCharts();
+      });
+      
+      // Refresh button
+      refreshButton.addEventListener('click', async () => {
+        // Fetch fresh data
+        const newData = await fetchEmployeeData();
+        
+        if (newData.length > 0) {
+          employeesData = newData;
+          
+          // Update filtered data based on current filter settings
+          filteredEmployeesData = filterDataByWeekRange(employeesData, activeStartWeek, activeEndWeek);
+          
+          // Update all charts
+          updateAllEmployeeCharts();
+        }
+      });
+      
+      // File select button
+      fileSelectButton.addEventListener('click', () => {
+        fileInput.click();
+      });
+      
+      // File input change
+      fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+          handleFileUpload(event.target.files[0]);
+        }
+      });
+      
+      // Drag and drop for file import area
+      fileImportArea.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        fileImportArea.classList.add('active');
+      });
+      
+      fileImportArea.addEventListener('dragleave', () => {
+        fileImportArea.classList.remove('active');
+      });
+      
+      fileImportArea.addEventListener('drop', (event) => {
+        event.preventDefault();
+        fileImportArea.classList.remove('active');
+        
+        if (event.dataTransfer.files.length > 0) {
+          handleFileUpload(event.dataTransfer.files[0]);
+        }
+      });
+      
+      // Global display toggle event handler
+      globalToggleSwitch.addEventListener('click', () => {
+        // Toggle the global display mode
+        globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
+        
+        // Update UI
+        if (globalDisplayMode === 'cost') {
+          globalToggleSwitch.classList.add('active');
+          globalHoursLabel.classList.remove('active');
+          globalCostLabel.classList.add('active');
+        } else {
+          globalToggleSwitch.classList.remove('active');
+          globalHoursLabel.classList.add('active');
+          globalCostLabel.classList.remove('active');
+        }
+        
+        // Update all charts to reflect the new display mode
+        updateAllEmployeeCharts();
+      });
+      
+      // Hours label click handler
+      globalHoursLabel.addEventListener('click', () => {
+        if (globalDisplayMode !== 'hours') {
+          globalDisplayMode = 'hours';
+          globalToggleSwitch.classList.remove('active');
+          globalHoursLabel.classList.add('active');
+          globalCostLabel.classList.remove('active');
+          updateAllEmployeeCharts();
+        }
+      });
+      
+      // Cost label click handler
+      globalCostLabel.addEventListener('click', () => {
+        if (globalDisplayMode !== 'cost') {
+          globalDisplayMode = 'cost';
+          globalToggleSwitch.classList.add('active');
+          globalHoursLabel.classList.remove('active');
+          globalCostLabel.classList.add('active');
+          updateAllEmployeeCharts();
+        }
+      });
+      
+      // Category/Task toggle event handler - NEW
+      categoryTaskToggle.addEventListener('click', () => {
+        // Toggle the global level mode
+        globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
+        
+        // Update UI
+        if (globalLevelMode === 'task') {
+          categoryTaskToggle.classList.add('active');
+          categoryLabel.classList.remove('active');
+          taskLabel.classList.add('active');
+        } else {
+          categoryTaskToggle.classList.remove('active');
+          categoryLabel.classList.add('active');
+          taskLabel.classList.remove('active');
+        }
+        
+        // Update all charts to reflect the new level mode
+        updateAllEmployeeCharts();
+      });
+      
+      // Category label click handler - NEW
+      categoryLabel.addEventListener('click', () => {
+        if (globalLevelMode !== 'category') {
+          globalLevelMode = 'category';
+          categoryTaskToggle.classList.remove('active');
+          categoryLabel.classList.add('active');
+          taskLabel.classList.remove('active');
+          updateAllEmployeeCharts();
+        }
+      });
+      
+      // Task label click handler - NEW
+      taskLabel.addEventListener('click', () => {
+        if (globalLevelMode !== 'task') {
+          globalLevelMode = 'task';
+          categoryTaskToggle.classList.add('active');
+          categoryLabel.classList.remove('active');
+          taskLabel.classList.add('active');
+          updateAllEmployeeCharts();
+        }
+      });
+    }
+    
+    // Function to get task categories (excluding metadata columns)
+    const getTaskCategories = (data) => {
+      return Object.keys(data[0]).filter(key => 
+        !['Date', 'User', 'Week Range'].includes(key)
+      );
+    };
+    
+    // Function to calculate detailed task data by employee
+    function calculateDetailedTaskData(employeeData, taskCategories) {
+      const detailedTaskData = {};
+      
+      // Initialize the data structure
+      taskCategories.forEach(task => {
+        detailedTaskData[task] = {
+          totalHours: 0,
+          totalCost: 0,
+          byEmployee: {}
+        };
+      });
+      
+      // Populate with employee data
+      employeeData.forEach(row => {
+        const employeeName = row.User.toLowerCase().split('@')[0];
+        const hourlyRate = getHourlyRate(employeeName);
+        
+        taskCategories.forEach(task => {
+          const hours = row[task] || 0;
+          if (hours > 0) {
+            // Add to task total
+            detailedTaskData[task].totalHours += hours;
+            detailedTaskData[task].totalCost += hours * hourlyRate;
+            
+            // Track by employee
+            if (!detailedTaskData[task].byEmployee[employeeName]) {
+              detailedTaskData[task].byEmployee[employeeName] = {
+                hours: 0,
+                cost: 0
+              };
+            }
+            
+            detailedTaskData[task].byEmployee[employeeName].hours += hours;
+            detailedTaskData[task].byEmployee[employeeName].cost += hours * hourlyRate;
+          }
+        });
+      });
+      
+      return detailedTaskData;
+    }
+    
+    // Function to calculate total hours per category - KEPT FOR COMPATIBILITY
+    const calculateTotalsByCategory = (employeeData, taskCategories) => {
+      const totalsByCategory = {};
+      taskCategories.forEach(category => {
+        totalsByCategory[category] = employeeData.reduce((sum, row) => {
+          return sum + (row[category] || 0);
+        }, 0);
+      });
+      return totalsByCategory;
+    };
+    
+    // Function to calculate totals by type
+    const calculateTotalsByType = (totalsByCategory) => {
+      const totalsByType = {};
+      Object.entries(categoriesByType).forEach(([type, categories]) => {
+        totalsByType[type] = categories.reduce((sum, category) => {
+          return sum + (totalsByCategory[category] || 0);
+        }, 0);
+      });
+      return totalsByType;
+    };
+    
+    // Function to create detailed breakdown
+    const createDetailedBreakdown = (totalsByCategory) => {
+      const detailedBreakdown = [];
+      Object.entries(totalsByCategory).forEach(([category, hours]) => {
+        if (hours > 0) {
+          // Find which type this category belongs to
+          let categoryType = '';
+          Object.entries(categoriesByType).forEach(([type, categories]) => {
+            if (categories.includes(category)) {
+              categoryType = type;
+            }
+          });
+          
+          detailedBreakdown.push({
+            name: category,
+            hours: hours,
+            type: categoryType
+          });
+        }
+      });
+      // Sort by hours in descending order
+      return detailedBreakdown.sort((a, b) => b.hours - a.hours);
+    };
+    
+    // Function to prepare pie chart data
+    const preparePieData = (totalsByType) => {
+      const totalHours = Object.values(totalsByType).reduce((sum, hours) => sum + hours, 0);
+      return Object.entries(totalsByType)
+        .filter(([_, hours]) => hours > 0)
+        .map(([type, hours]) => ({
+          name: type,
+          value: hours,
+          percentage: ((hours / totalHours) * 100).toFixed(1)
+        }));
+    };
+    
+    // Function to get the color for a specific category
+    const getCategoryColor = (category) => {
+      return CATEGORY_COLOR_CACHE[category] || '#ccccccCC'; // Default to gray if not found
+    };
+    
+    // Function to get the border color for a specific category
+    const getCategoryBorderColor = (category) => {
+      return CATEGORY_BORDER_COLOR_CACHE[category] || '#cccccc'; // Default to gray if not found
+    };
+    
+    // Function to get the color for a specific task
+    const getTaskColor = (task) => {
+      return TASK_COLOR_CACHE[task] || '#ccccccCC'; // Default to gray if not found
+    };
+    
+    // Function to get the border color for a specific task
+    const getTaskBorderColor = (task) => {
+      return TASK_BORDER_COLOR_CACHE[task] || '#cccccc'; // Default to gray if not found
+    };
+    
+    // Function to update employee summary statistics
+    function updateEmployeeSummary(employeeName, totalsByCategory, detailedBreakdown) {
+      // Get the correct hourly rate for this employee
+      const hourlyRate = getHourlyRate(employeeName);
+      
+      const totalHoursElement = document.getElementById(`${employeeName}-total-hours`);
+      const totalHoursSubtitleElement = document.getElementById(`${employeeName}-total-hours-subtitle`);
+      const totalCostElement = document.getElementById(`${employeeName}-total-cost`);
+      
+      const mostTimeActivityElement = document.getElementById(`${employeeName}-most-time-activity`);
+      const mostTimeHoursElement = document.getElementById(`${employeeName}-most-time-hours`);
+      const mostTimeCostElement = document.getElementById(`${employeeName}-most-time-cost`);
+      
+      const weeklyAverageElement = document.getElementById(`${employeeName}-weekly-average`);
+      const weeklyAverageSubtitleElement = document.getElementById(`${employeeName}-weekly-average-subtitle`);
+      const weeklyAverageCostElement = document.getElementById(`${employeeName}-weekly-average-cost`);
+      
+      // Calculate total hours
+      const totalHours = Object.values(totalsByCategory).reduce((sum, hours) => sum + hours, 0);
+      
+      // Find most time-consuming activity
+      let mostTimeActivity = "None";
+      let mostTimeHours = 0;
+      let mostTimePercentage = 0;
+      let mostTimeCost = 0;
+      
+      if (detailedBreakdown.length > 0) {
+        // Sort by hours (original sorting might have been by predefined order)
+        const sortedByHours = [...detailedBreakdown].sort((a, b) => b.hours - a.hours);
+        const topActivity = sortedByHours[0];
+        mostTimeActivity = topActivity.name;
+        mostTimeHours = topActivity.hours;
+        mostTimePercentage = ((mostTimeHours / totalHours) * 100).toFixed(1);
+        mostTimeCost = topActivity.cost !== undefined ? topActivity.cost : mostTimeHours * hourlyRate;
+      }
+      
+      // Calculate weekly average
+      const employeeData = filteredEmployeesData.filter(row => row.User.toLowerCase().includes(employeeName));
+      const uniqueWeeks = [...new Set(employeeData.map(row => row['Week Range']))];
+      const weeklyAverage = (totalHours / uniqueWeeks.length).toFixed(1);
+      
+      // Update the elements if they exist
+      if (totalHoursElement) {
+        totalHoursElement.textContent = totalHours.toFixed(1);
+      }
+      
+      if (totalHoursSubtitleElement) {
+        totalHoursSubtitleElement.textContent = `Hours tracked across ${uniqueWeeks.length} week${uniqueWeeks.length !== 1 ? 's' : ''}`;
+      }
+      
+      if (totalCostElement) {
+        totalCostElement.textContent = `$${(totalHours * hourlyRate).toFixed(2)} total compensation`;
+      }
+      
+      if (mostTimeActivityElement) {
+        mostTimeActivityElement.textContent = mostTimeActivity;
+      }
+      
+      if (mostTimeHoursElement) {
+        mostTimeHoursElement.textContent = `${mostTimeHours.toFixed(1)} hours (${mostTimePercentage}%)`;
+      }
+      
+      if (mostTimeCostElement) {
+        mostTimeCostElement.textContent = `$${mostTimeCost.toFixed(2)} spent on this activity`;
+      }
+      
+      if (weeklyAverageElement) {
+        weeklyAverageElement.textContent = weeklyAverage;
+      }
+      
+      if (weeklyAverageSubtitleElement) {
+        weeklyAverageSubtitleElement.textContent = 'Hours per week';
+      }
+      
+      if (weeklyAverageCostElement) {
+        weeklyAverageCostElement.textContent = `$${(weeklyAverage * hourlyRate).toFixed(2)} weekly compensation`;
+      }
+    }
+    
+    // Function to display no data message
+    function displayNoDataMessage(employeeName) {
+      const dashboard = document.getElementById(`${employeeName}-dashboard`);
+      
+      // Clear existing charts
+      if (charts[employeeName].pieChart) {
+        charts[employeeName].pieChart.destroy();
+        charts[employeeName].pieChart = null;
+      }
+      
+      if (charts[employeeName].barChart) {
+        charts[employeeName].barChart.destroy();
+        charts[employeeName].barChart = null;
+      }
+      
+      if (charts[employeeName].timeLineChart) {
+        charts[employeeName].timeLineChart.destroy();
+        charts[employeeName].timeLineChart = null;
+      }
+      
+      if (employeeName === 'all' && charts[employeeName].comparisonChart) {
+        charts[employeeName].comparisonChart.destroy();
+        charts[employeeName].comparisonChart = null;
+      }
+      
+      // Display no data message
+      const noDataMessage = document.createElement('div');
+      noDataMessage.className = 'employee-notice';
+      noDataMessage.textContent = `No data available for ${employeeName === 'all' ? 'any employees' : employeeName} in the selected date range.`;
+      
+      // Clear and append
+      const chartsGrids = dashboard.querySelectorAll('.charts-grid');
+      chartsGrids.forEach(grid => {
+        grid.innerHTML = '';
+        grid.appendChild(noDataMessage.cloneNode(true));
+      });
+      
+      // Clear summary stats
+      const statValues = dashboard.querySelectorAll('.stat-value');
+      statValues.forEach(value => {
+        value.textContent = 'N/A';
+      });
+      
+      const statSubtitles = dashboard.querySelectorAll('.stat-subtitle');
+      statSubtitles.forEach(subtitle => {
+        subtitle.textContent = 'No data available';
+      });
+      
+      const costTexts = dashboard.querySelectorAll('.cost-text');
+      costTexts.forEach(cost => {
+        cost.textContent = '$0.00';
+      });
+    }
+    
+    // Function to initialize category-based or task-based pie chart - MODIFIED FOR CATEGORY/TASK TOGGLE
+    function initializeTaskPieChart(employeeName, detailedTaskData) {
+      // Get the canvas element
+      const pieCanvas = document.getElementById(`${employeeName}-pieChart`);
+      if (!pieCanvas) return null;
+      
+      // Clear existing chart if present
+      if (charts[employeeName].pieChart) {
+        charts[employeeName].pieChart.destroy();
+      }
+      
+      let chartData = [];
+      
+      if (globalLevelMode === 'category') {
+        // Prepare data aggregated by category
+        const categoryData = {};
+        
+        // Initialize category data
+        Object.keys(categoriesByType).forEach(category => {
+          categoryData[category] = {
+            name: category,
+            hours: 0,
+            cost: 0,
+            type: category
+          };
+        });
+        
+        // Aggregate task data into categories
+        Object.entries(detailedTaskData).forEach(([taskName, data]) => {
+          if (data.totalHours > 0) {
+            // Find which category this task belongs to
+            Object.entries(categoriesByType).forEach(([category, tasks]) => {
+              if (tasks.includes(taskName)) {
+                categoryData[category].hours += data.totalHours;
+                categoryData[category].cost += data.totalCost;
+              }
+            });
+          }
+        });
+        
+        // Convert to array and filter out empty categories
+        chartData = Object.values(categoryData).filter(item => item.hours > 0);
+        
+        // Sort by hours (descending)
+        chartData.sort((a, b) => b.hours - a.hours);
+      } else {
+        // Use task-level data
+        Object.entries(detailedTaskData).forEach(([taskName, data]) => {
+          if (data.totalHours > 0) {
+            // Find which type this category belongs to
+            let categoryType = '';
+            Object.entries(categoriesByType).forEach(([type, categories]) => {
+              if (categories.includes(taskName)) {
+                categoryType = type;
+              }
+            });
+            
+            chartData.push({
+              name: taskName,
+              hours: data.totalHours,
+              cost: data.totalCost,
+              type: categoryType
+            });
+          }
+        });
+        
+        // Sort tasks according to predefined order
+        chartData = [...chartData].sort((a, b) => {
+          const indexA = TASK_ORDER.indexOf(a.name);
+          const indexB = TASK_ORDER.indexOf(b.name);
+          
+          // If both tasks are in our order list, use that order
+          if (indexA !== -1 && indexB !== -1) {
+            return indexA - indexB;
+          }
+          
+          // If only one is in the list, prioritize the one in the list
+          if (indexA !== -1) return -1;
+          if (indexB !== -1) return 1;
+          
+          // If neither is in the list, sort by hours (descending)
+          return b.hours - a.hours;
+        });
+      }
+      
+      // Calculate total values for percentages
+      const totalHours = chartData.reduce((sum, item) => sum + item.hours, 0);
+      const totalCost = chartData.reduce((sum, item) => sum + item.cost, 0);
+      
+      // Determine which value to use for the pie chart (hours or cost)
+      const displayByCost = globalDisplayMode === 'cost';
+      const dataValues = displayByCost ? 
+        chartData.map(item => item.cost) : 
+        chartData.map(item => item.hours);
+      
+      // Create labels with appropriate percentages
+      const labels = chartData.map(item => {
+        const value = displayByCost ? item.cost : item.hours;
+        const total = displayByCost ? totalCost : totalHours;
+        const percentage = ((value / total) * 100).toFixed(1);
+        return `${item.name}: ${percentage}%`;
+      });
+      
+      // Get appropriate colors based on level mode
+      const backgroundColor = globalLevelMode === 'category' ?
+        chartData.map(item => getCategoryColor(item.name)) :
+        chartData.map(item => getTaskColor(item.name));
+        
+      const borderColor = globalLevelMode === 'category' ?
+        chartData.map(item => getCategoryBorderColor(item.name)) :
+        chartData.map(item => getTaskBorderColor(item.name));
+      
+      // Create the pie chart
+      const pieCtx = pieCanvas.getContext('2d');
+      return new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: dataValues,
+            backgroundColor: backgroundColor,
+            borderColor: borderColor,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const item = chartData[context.dataIndex];
+                  if (displayByCost) {
+                    return [
+                      `${item.name}`, 
+                      `Cost: $${item.cost.toFixed(2)}`, 
+                      `Hours: ${item.hours.toFixed(1)}`
+                    ];
+                  } else {
+                    return [
+                      `${item.name}`, 
+                      `Hours: ${item.hours.toFixed(1)}`, 
+                      `Cost: $${item.cost.toFixed(2)}`
+                    ];
+                  }
+                }
+              }
+            },
+            legend: {
+              position: 'bottom',
+              labels: {
+                font: { size: 10 },
+                boxWidth: 10
+              },
+              maxItems: 100,
+              fullSize: true
+            }
+          }
+        }
+      });
+    }
+    
+    // Function to initialize charts for an employee - UPDATED FOR CATEGORY/TASK TOGGLE
+    const initializeEmployeeCharts = (employeeName) => {
+      if (employeesData.length === 0) {
+        displayNoDataMessage(employeeName);
+        return;
+      }
+      
+      const taskCategories = getTaskCategories(employeesData);
+      
+      // Get data for this employee
+      const employeeData = filteredEmployeesData.filter(row => {
+        const email = row.User.toLowerCase();
+        return email.includes(employeeName.toLowerCase());
+      });
+      
+      // If no data after filtering, show a message
+      if (employeeData.length === 0) {
+        displayNoDataMessage(employeeName);
+        return;
+      }
+      
+      // Calculate detailed task data
+      const detailedTaskData = calculateDetailedTaskData(employeeData, taskCategories);
+      
+      // Also calculate simple totals for backward compatibility
+      const totalsByCategory = {};
+      taskCategories.forEach(task => {
+        totalsByCategory[task] = detailedTaskData[task].totalHours;
+      });
+      
+      // Create detailed breakdown for bar chart
+      const detailedBreakdown = [];
+      Object.entries(detailedTaskData).forEach(([taskName, data]) => {
+        if (data.totalHours > 0) {
+          // Find which type this category belongs to
+          let categoryType = '';
+          Object.entries(categoriesByType).forEach(([type, categories]) => {
+            if (categories.includes(taskName)) {
+              categoryType = type;
+            }
+          });
+          
+          detailedBreakdown.push({
+            name: taskName,
+            hours: data.totalHours,
+            cost: data.totalCost,
+            type: categoryType
+          });
+        }
+      });
+      
+      const hourlyRate = getHourlyRate(employeeName);
+      
+      // Update summary statistics
+      updateEmployeeSummary(employeeName, totalsByCategory, detailedBreakdown);
+      
+      // Initialize pie chart using the updated function
+      charts[employeeName].pieChart = initializeTaskPieChart(
+        employeeName, 
+        detailedTaskData
+      );
+      
+      // Initialize bar chart with category or task view
+      const barCanvas = document.getElementById(`${employeeName}-barChart`);
+      if (barCanvas) {
+        if (charts[employeeName].barChart) {
+          charts[employeeName].barChart.destroy();
+        }
+        
+        let barData = [];
+        
+        if (globalLevelMode === 'category') {
+          // Prepare data aggregated by category
+          const categoryData = {};
+          
+          // Initialize category data
+          Object.keys(categoriesByType).forEach(category => {
+            categoryData[category] = {
+              name: category,
+              hours: 0,
+              cost: 0,
+              type: category
+            };
+          });
+          
+          // Aggregate task data into categories
+          detailedBreakdown.forEach(task => {
+            Object.entries(categoriesByType).forEach(([category, tasks]) => {
+              if (tasks.includes(task.name)) {
+                categoryData[category].hours += task.hours;
+                categoryData[category].cost += task.cost;
+              }
+            });
+          });
+          
+          // Convert to array and filter out empty categories
+          barData = Object.values(categoryData).filter(item => item.hours > 0);
+          
+          // Sort by hours (descending)
+          barData.sort((a, b) => b.hours - a.hours);
+        } else {
+          // Use task-level data (original implementation)
+          barData = [...detailedBreakdown].sort((a, b) => {
+            const indexA = TASK_ORDER.indexOf(a.name);
+            const indexB = TASK_ORDER.indexOf(b.name);
+            
+            // If both tasks are in our order list, use that order
+            if (indexA !== -1 && indexB !== -1) {
+              return indexA - indexB;
+            }
+            
+            // If only one is in the list, prioritize the one in the list
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            
+            // If neither is in the list, sort by hours (descending)
+            return b.hours - a.hours;
+          });
+        }
+        
+        // Use cost or hours based on global display mode
+        const displayByCost = globalDisplayMode === 'cost';
+        
+        // Get appropriate colors based on level mode
+        const backgroundColor = globalLevelMode === 'category' ?
+          barData.map(item => getCategoryColor(item.name)) :
+          barData.map(item => getTaskColor(item.name));
+          
+        const borderColor = globalLevelMode === 'category' ?
+          barData.map(item => getCategoryBorderColor(item.name)) :
+          barData.map(item => getTaskBorderColor(item.name));
+        
+        const barCtx = barCanvas.getContext('2d');
+        charts[employeeName].barChart = new Chart(barCtx, {
+          type: 'bar',
+          data: {
+            labels: barData.map(item => item.name),
+            datasets: [{
+              label: displayByCost ? 'Cost ($)' : 'Hours',
+              data: displayByCost ? 
+                barData.map(item => item.cost) : 
+                barData.map(item => item.hours),
+              backgroundColor: backgroundColor,
+              borderColor: borderColor,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const index = context.dataIndex;
+                    const item = barData[index];
+                    if (displayByCost) {
+                      return [`Cost: $${item.cost.toFixed(2)}`, `Hours: ${item.hours.toFixed(1)}`];
+                    } else {
+                      return [`Hours: ${item.hours.toFixed(1)}`, `Cost: $${item.cost.toFixed(2)}`];
+                    }
+                  }
+                }
+              },
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: displayByCost ? 'Cost ($)' : 'Hours'
+                }
+              },
+              y: {
+                ticks: {
+                  font: {
+                    size: 9 // Smaller font to fit more labels
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Initialize time line chart if available
+      const timeCanvas = document.getElementById(`${employeeName}-timeLineChart`);
+      const timeChartContainer = document.getElementById(`${employeeName}-timeLineChart-container`);
+      const noDataMessage = document.getElementById(`${employeeName}-no-trend-data`);
+      
+      if (timeCanvas) {
+        // Check if we have multiple weeks of data
+        const uniqueWeeks = [...new Set(employeeData.map(row => row['Week Range']))];
+        
+        if (uniqueWeeks.length > 1) {
+          if (noDataMessage) {
+            noDataMessage.style.display = 'none';
+          }
+          
+          if (timeChartContainer) {
+            timeChartContainer.style.display = 'block';
+          }
+          
+          if (charts[employeeName].timeLineChart) {
+            charts[employeeName].timeLineChart.destroy();
+          }
+          
+          const timeCtx = timeCanvas.getContext('2d');
+          
+          // Get weeks in chronological order
+          const weeks = [...new Set(employeeData.map(row => row['Week Range']))].sort(compareWeekRanges);
+          
+          // Prepare datasets based on view level
+          let datasets = [];
+          
+          if (globalLevelMode === 'category') {
+            // Create weekly data by category
+            const weeklyDataByCategory = {};
+            weeks.forEach(week => {
+              weeklyDataByCategory[week] = {
+                totalHours: 0,
+                totalCost: 0
+              };
+              
+              // Initialize categories
+              Object.keys(categoriesByType).forEach(category => {
+                weeklyDataByCategory[week][category] = {
+                  hours: 0,
+                  cost: 0
+                };
+              });
+            });
+            
+            // Fill data
+            employeeData.forEach(row => {
+              const week = row['Week Range'];
+              
+              Object.entries(categoriesByType).forEach(([category, tasks]) => {
+                tasks.forEach(task => {
+                  const hours = row[task] || 0;
+                  if (hours > 0) {
+                    weeklyDataByCategory[week][category].hours += hours;
+                    weeklyDataByCategory[week][category].cost += hours * hourlyRate;
+                    weeklyDataByCategory[week].totalHours += hours;
+                    weeklyDataByCategory[week].totalCost += hours * hourlyRate;
+                  }
+                });
+              });
+            });
+            
+            // Create datasets for categories (top 3 by total hours)
+            const categoryTotals = {};
+            Object.keys(categoriesByType).forEach(category => {
+              categoryTotals[category] = weeks.reduce((sum, week) => {
+                return sum + weeklyDataByCategory[week][category].hours;
+              }, 0);
+            });
+            
+            // Get top 3 categories
+            const topCategories = Object.entries(categoryTotals)
+              .filter(([_, total]) => total > 0)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([category]) => category);
+            
+            // Use cost or hours based on global display mode
+            const displayByCost = globalDisplayMode === 'cost';
+            
+            // Create datasets for top categories
+            topCategories.forEach(category => {
+              datasets.push({
+                label: category,
+                data: weeks.map(week => displayByCost ? 
+                  weeklyDataByCategory[week][category].cost : 
+                  weeklyDataByCategory[week][category].hours),
+                borderColor: getCategoryBorderColor(category),
+                backgroundColor: getCategoryColor(category),
+                tension: 0.1
+              });
+            });
+            
+            // Add total dataset
+            datasets.push({
+              label: displayByCost ? 'Total Cost' : 'Total Hours',
+              data: weeks.map(week => displayByCost ? 
+                weeklyDataByCategory[week].totalCost : 
+                weeklyDataByCategory[week].totalHours),
+              borderColor: '#FF5733',
+              backgroundColor: 'rgba(255, 87, 51, 0.8)',
+              borderWidth: 2,
+              tension: 0.1
+            });
+          } else {
+            // Get top 3 activities - Original implementation
+            const topActivities = detailedBreakdown.slice(0, 3);
+            
+            // Prepare data for each week
+            const weeklyDataMap = {};
+            employeeData.forEach(row => {
+              const week = row['Week Range'];
+              if (!weeklyDataMap[week]) {
+                weeklyDataMap[week] = {
+                  totalHours: 0,
+                  totalCost: 0
+                };
+                
+                // Initialize all top activities
+                topActivities.forEach(activity => {
+                  weeklyDataMap[week][activity.name] = {
+                    hours: 0,
+                    cost: 0
+                  };
+                });
+              }
+              
+              // Add hours for each activity
+              topActivities.forEach(activity => {
+                const hours = row[activity.name] || 0;
+                if (hours > 0) {
+                  weeklyDataMap[week][activity.name].hours += hours;
+                  weeklyDataMap[week][activity.name].cost += hours * hourlyRate;
+                  weeklyDataMap[week].totalHours += hours;
+                  weeklyDataMap[week].totalCost += hours * hourlyRate;
+                }
+              });
+              
+              // Add other hours and costs
+              Object.keys(row).forEach(key => {
+                if (!['Date', 'User', 'Week Range'].includes(key) && 
+                    !topActivities.some(a => a.name === key)) {
+                  const hours = row[key] || 0;
+                  if (hours > 0) {
+                    weeklyDataMap[week].totalHours += hours;
+                    weeklyDataMap[week].totalCost += hours * hourlyRate;
+                  }
+                }
+              });
+            });
+            
+            // Convert to array format for chart
+            const weeklyData = weeks.map(week => ({
+              week,
+              ...weeklyDataMap[week]
+            }));
+            
+            // Use cost or hours based on global display mode
+            const displayByCost = globalDisplayMode === 'cost';
+            
+            // Create datasets
+            datasets = topActivities.map(activity => ({
+              label: activity.name,
+              data: weeklyData.map(week => displayByCost ? 
+                week[activity.name]?.cost || 0 : 
+                week[activity.name]?.hours || 0),
+              borderColor: getTaskBorderColor(activity.name),
+              backgroundColor: getTaskColor(activity.name),
+              tension: 0.1
+            }));
+            
+            // Add total dataset
+            datasets.push({
+              label: displayByCost ? 'Total Cost' : 'Total Hours',
+              data: weeklyData.map(week => displayByCost ? week.totalCost : week.totalHours),
+              borderColor: '#FF5733',
+              backgroundColor: 'rgba(255, 87, 51, 0.8)',
+              borderWidth: 2,
+              tension: 0.1
+            });
+          }
+          
+          charts[employeeName].timeLineChart = new Chart(timeCtx, {
+            type: 'line',
+            data: {
+              labels: weeks,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.dataset.label || '';
+                      const value = context.raw || 0;
+                      
+                      // Different tooltip formatting for cost vs hours
+                      if (globalDisplayMode === 'cost') {
+                        return [`${label}: $${value.toFixed(2)}`];
+                      } else {
+                        return [`${label}: ${value.toFixed(1)} hours`];
+                      }
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: globalDisplayMode === 'cost' ? 'Cost ($)' : 'Hours'
+                  }
+                }
+              }
+            }
+          });
+        } else {
+          if (charts[employeeName].timeLineChart) {
+            charts[employeeName].timeLineChart.destroy();
+            charts[employeeName].timeLineChart = null;
+          }
+          
+          if (timeChartContainer) {
+            timeChartContainer.style.display = 'none';
+          }
+          
+          if (noDataMessage) {
+            noDataMessage.style.display = 'block';
+            if (uniqueWeeks.length === 1) {
+              noDataMessage.textContent = `Weekly trend data not available - ${employeeName} only has data for one week (${uniqueWeeks[0]})`;
+            } else {
+              noDataMessage.textContent = `No data available for the selected date range.`;
+            }
+          }
+        }
+      }
+    };
+    
+    // Function to initialize the "All Employees" dashboard - UPDATED FOR CATEGORY/TASK TOGGLE
+    function initializeTeamDashboard() {
+      if (filteredEmployeesData.length === 0) {
+        displayNoDataMessage('all');
+        return;
+      }
+      
+      const taskCategories = getTaskCategories(employeesData);
+      
+      // Calculate detailed task data for the entire team
+      const detailedTaskData = calculateDetailedTaskData(filteredEmployeesData, taskCategories);
+      
+      // Also calculate simple totals for backward compatibility
+      const totalsByCategory = {};
+      taskCategories.forEach(task => {
+        totalsByCategory[task] = detailedTaskData[task].totalHours;
+      });
+      
+      // Create detailed breakdown for charts
+      const detailedBreakdownUnsorted = [];
+      Object.entries(detailedTaskData).forEach(([taskName, data]) => {
+        if (data.totalHours > 0) {
+          // Find which type this category belongs to
+          let categoryType = '';
+          Object.entries(categoriesByType).forEach(([type, categories]) => {
+            if (categories.includes(taskName)) {
+              categoryType = type;
+            }
+          });
+          
+          detailedBreakdownUnsorted.push({
+            name: taskName,
+            hours: data.totalHours,
+            cost: data.totalCost,
+            type: categoryType
+          });
+        }
+      });
+      
+      // Sort the detailed breakdown according to our predefined order
+      const detailedBreakdown = [...detailedBreakdownUnsorted].sort((a, b) => {
+        const indexA = TASK_ORDER.indexOf(a.name);
+        const indexB = TASK_ORDER.indexOf(b.name);
+        
+        // If both tasks are in our order list, use that order
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        
+        // If only one is in the list, prioritize the one in the list
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+        
+        // If neither is in the list, sort by hours (descending)
+        return b.hours - a.hours;
+      });
+      
+      // Calculate employee-specific totals for comparison
+      const employeeNames = ['victoria', 'kyle', 'brooke', 'melanie'];
+      const employeeTotals = {};
+      const employeeColors = {
+        victoria: '#FF6384', // Pink
+        kyle: '#36A2EB',     // Blue
+        brooke: '#FFCE56',   // Yellow
+        melanie: '#4BC0C0'   // Teal
+      };
+      
+      employeeNames.forEach(name => {
+        const employeeData = filteredEmployeesData.filter(row => {
+          const email = row.User.toLowerCase();
+          return email.includes(name.toLowerCase());
+        });
+        
+        if (employeeData.length > 0) {
+          // Get employee-specific hourly rate
+          const hourlyRate = getHourlyRate(name);
+          
+          // Calculate detailed task data for this employee
+          const employeeDetailedTaskData = calculateDetailedTaskData(employeeData, taskCategories);
+          
+          // Calculate total hours and cost
+          let totalHours = 0;
+          let totalCost = 0;
+          Object.values(employeeDetailedTaskData).forEach(data => {
+            totalHours += data.totalHours;
+            totalCost += data.totalCost;
+          });
+          
+          // Store for comparison chart
+          employeeTotals[name] = {
+            totalHours,
+            hourlyRate,
+            totalCost,
+            // Also store time by category type for the comparison chart
+            byType: {}
+          };
+          
+          // Calculate by type
+          Object.entries(categoriesByType).forEach(([type, tasks]) => {
+            employeeTotals[name].byType[type] = {
+              hours: 0,
+              cost: 0
+            };
+            
+            tasks.forEach(task => {
+              if (employeeDetailedTaskData[task]) {
+                employeeTotals[name].byType[type].hours += employeeDetailedTaskData[task].totalHours || 0;
+                employeeTotals[name].byType[type].cost += employeeDetailedTaskData[task].totalCost || 0;
+              }
+            });
+          });
+        }
+      });
+      
+      // Calculate total team hours and cost
+      const totalTeamHours = Object.values(employeeTotals).reduce((sum, employee) => sum + employee.totalHours, 0);
+      const totalTeamCost = Object.values(employeeTotals).reduce((sum, employee) => sum + employee.totalCost, 0);
+      
+      // Calculate average hourly rate for the team
+      const avgHourlyRate = totalTeamHours > 0 ? 
+        totalTeamCost / totalTeamHours : 
+        Object.values(EMPLOYEE_HOURLY_RATES).reduce((sum, rate) => sum + rate, 0) / 
+        Object.values(EMPLOYEE_HOURLY_RATES).length;
+      
+      // Update summary statistics
+      updateTeamSummary(totalsByCategory, detailedBreakdown, employeeTotals, totalTeamHours, totalTeamCost);
+      
+      // Create the pie chart using the shared function
+      charts.all.pieChart = initializeTaskPieChart(
+        'all', 
+        detailedTaskData
+      );
+      
+      // Create the bar chart - with category/task toggle support
+      const barCanvas = document.getElementById('all-barChart');
+      if (barCanvas) {
+        if (charts.all.barChart) {
+          charts.all.barChart.destroy();
+        }
+        
+        let barData = [];
+        
+        if (globalLevelMode === 'category') {
+          // Prepare data aggregated by category
+          const categoryData = {};
+          
+          // Initialize category data
+          Object.keys(categoriesByType).forEach(category => {
+            categoryData[category] = {
+              name: category,
+              hours: 0,
+              cost: 0,
+              type: category
+            };
+          });
+          
+          // Aggregate task data into categories
+          detailedBreakdown.forEach(task => {
+            Object.entries(categoriesByType).forEach(([category, tasks]) => {
+              if (tasks.includes(task.name)) {
+                categoryData[category].hours += task.hours;
+                categoryData[category].cost += task.cost;
+              }
+            });
+          });
+          
+          // Convert to array and filter out empty categories
+          barData = Object.values(categoryData).filter(item => item.hours > 0);
+          
+          // Sort by hours (descending)
+          barData.sort((a, b) => b.hours - a.hours);
+        } else {
+          // Use task-level data (original implementation)
+          barData = [...detailedBreakdown];
+        }
+        
+        // Use cost or hours based on global display mode
+        const displayByCost = globalDisplayMode === 'cost';
+        
+        // Get appropriate colors based on level mode
+        const backgroundColor = globalLevelMode === 'category' ?
+          barData.map(item => getCategoryColor(item.name)) :
+          barData.map(item => getTaskColor(item.name));
+          
+        const borderColor = globalLevelMode === 'category' ?
+          barData.map(item => getCategoryBorderColor(item.name)) :
+          barData.map(item => getTaskBorderColor(item.name));
+        
+        const barCtx = barCanvas.getContext('2d');
+        charts.all.barChart = new Chart(barCtx, {
+          type: 'bar',
+          data: {
+            labels: barData.map(item => item.name),
+            datasets: [{
+              label: displayByCost ? 'Cost ($)' : 'Hours',
+              data: displayByCost ? 
+                barData.map(item => item.cost) : 
+                barData.map(item => item.hours),
+              backgroundColor: backgroundColor,
+              borderColor: borderColor,
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const index = context.dataIndex;
+                    const item = barData[index];
+                    if (displayByCost) {
+                      return [`Cost: $${item.cost.toFixed(2)}`, `Hours: ${item.hours.toFixed(1)}`];
+                    } else {
+                      return [`Hours: ${item.hours.toFixed(1)}`, `Cost: $${item.cost.toFixed(2)}`];
+                    }
+                  }
+                }
+              },
+              legend: {
+                display: false
+              }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: displayByCost ? 'Cost ($)' : 'Hours'
+                }
+              },
+              y: {
+                ticks: {
+                  font: {
+                    size: globalLevelMode === 'category' ? 12 : 8 // Adjust font size based on level mode
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Create employee comparison chart - with category/task toggle support
+      const comparisonCanvas = document.getElementById('team-comparisonChart');
+      if (comparisonCanvas && Object.keys(employeeTotals).length > 0) {
+        if (charts.all.comparisonChart) {
+          charts.all.comparisonChart.destroy();
+        }
+        
+        const comparisonCtx = comparisonCanvas.getContext('2d');
+        
+        // Use cost or hours based on global display mode
+        const displayByCost = globalDisplayMode === 'cost';
+        
+        // Prepare data for comparison chart - this will be a stacked bar chart
+        const comparisonData = {
+          labels: employeeNames.filter(name => employeeTotals[name]),
+          datasets: []
+        };
+        
+        // If showing by category, use category types
+        if (globalLevelMode === 'category') {
+          // Get all the types used by any employee
+          const allTypes = new Set();
+          Object.values(employeeTotals).forEach(employee => {
+            Object.keys(employee.byType).forEach(type => allTypes.add(type));
+          });
+          
+          // Create a dataset for each type
+          Array.from(allTypes).forEach(type => {
+            comparisonData.datasets.push({
+              label: type,
+              data: comparisonData.labels.map(name => 
+                displayByCost ? 
+                employeeTotals[name].byType[type]?.cost || 0 : 
+                employeeTotals[name].byType[type]?.hours || 0
+              ),
+              backgroundColor: getCategoryColor(type),
+              borderColor: getCategoryBorderColor(type),
+              borderWidth: 1
+            });
+          });
+        } 
+        // If showing by task, use top tasks across all employees
+        else {
+          // Collect all tasks used by all employees
+          const taskTotals = {};
+          
+          // For each employee, get their task data
+          comparisonData.labels.forEach(name => {
+            const employeeData = filteredEmployeesData.filter(row => 
+              row.User.toLowerCase().includes(name)
+            );
+            
+            const employeeTaskData = calculateDetailedTaskData(employeeData, taskCategories);
+            
+            // Add each task's hours to the totals
+            Object.entries(employeeTaskData).forEach(([task, data]) => {
+              if (data.totalHours > 0) {
+                if (!taskTotals[task]) {
+                  taskTotals[task] = {
+                    name: task,
+                    hours: 0,
+                    byEmployee: {}
+                  };
+                }
+                
+                taskTotals[task].hours += data.totalHours;
+                
+                // Store by employee for the chart
+                comparisonData.labels.forEach(empName => {
+                  if (!taskTotals[task].byEmployee[empName]) {
+                    taskTotals[task].byEmployee[empName] = {
+                      hours: 0,
+                      cost: 0
+                    };
+                  }
+                  
+                  if (data.byEmployee[empName]) {
+                    taskTotals[task].byEmployee[empName].hours = data.byEmployee[empName].hours;
+                    taskTotals[task].byEmployee[empName].cost = data.byEmployee[empName].cost;
+                  }
+                });
+              }
+            });
+          });
+          
+          // Get top 5 tasks by total hours
+          const topTasks = Object.entries(taskTotals)
+            .sort((a, b) => b[1].hours - a[1].hours)
+            .slice(0, 5)
+            .map(([taskName, data]) => ({ 
+              name: taskName, 
+              ...data 
+            }));
+          
+          // Create a dataset for each top task
+          topTasks.forEach(task => {
+            comparisonData.datasets.push({
+              label: task.name,
+              data: comparisonData.labels.map(name => 
+                displayByCost ? 
+                task.byEmployee[name]?.cost || 0 : 
+                task.byEmployee[name]?.hours || 0
+              ),
+              backgroundColor: getTaskColor(task.name),
+              borderColor: getTaskBorderColor(task.name),
+              borderWidth: 1
+            });
+          });
+        }
+        
+        charts.all.comparisonChart = new Chart(comparisonCtx, {
+          type: 'bar',
+          data: comparisonData,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                stacked: true,
+              },
+              y: {
+                stacked: true,
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: displayByCost ? 'Cost ($)' : 'Hours'
+                }
+              }
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const datasetLabel = context.dataset.label || '';
+                    const value = context.raw || 0;
+                    const employeeName = context.label;
+                    
+                    if (displayByCost) {
+                      return [`${datasetLabel}: $${value.toFixed(2)}`];
+                    } else {
+                      return [`${datasetLabel}: ${value.toFixed(1)} hours`];
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+      
+      // Create team weekly trend chart - Adapted for category/task toggle
+      const timeCanvas = document.getElementById('all-timeLineChart');
+      const timeChartContainer = document.getElementById('all-timeLineChart-container');
+      const noDataMessage = document.getElementById('all-no-trend-data');
+      
+      if (timeCanvas) {
+        // Get all unique weeks
+        const uniqueWeeks = [...new Set(filteredEmployeesData.map(row => row['Week Range']))];
+        
+        if (uniqueWeeks.length > 1) {
+          if (noDataMessage) {
+            noDataMessage.style.display = 'none';
+          }
+          
+          if (timeChartContainer) {
+            timeChartContainer.style.display = 'block';
+          }
+          
+          if (charts.all.timeLineChart) {
+            charts.all.timeLineChart.destroy();
+          }
+          
+          const timeCtx = timeCanvas.getContext('2d');
+          
+          // Get weeks in chronological order
+          const weeks = [...uniqueWeeks].sort(compareWeekRanges);
+          
+          let datasets = [];
+          
+          // For category view, show trends by category
+          if (globalLevelMode === 'category') {
+            // Prepare weekly data by category
+            const weeklyDataByCategory = {};
+            weeks.forEach(week => {
+              weeklyDataByCategory[week] = {
+                totalHours: 0,
+                totalCost: 0
+              };
+              
+              // Initialize categories
+              Object.keys(categoriesByType).forEach(category => {
+                weeklyDataByCategory[week][category] = {
+                  hours: 0,
+                  cost: 0
+                };
+              });
+            });
+            
+            // Fill data
+            filteredEmployeesData.forEach(row => {
+              const week = row['Week Range'];
+              const employeeName = row.User.toLowerCase().split('@')[0];
+              const hourlyRate = getHourlyRate(employeeName);
+              
+              Object.entries(categoriesByType).forEach(([category, tasks]) => {
+                tasks.forEach(task => {
+                  const hours = row[task] || 0;
+                  if (hours > 0) {
+                    weeklyDataByCategory[week][category].hours += hours;
+                    weeklyDataByCategory[week][category].cost += hours * hourlyRate;
+                    weeklyDataByCategory[week].totalHours += hours;
+                    weeklyDataByCategory[week].totalCost += hours * hourlyRate;
+                  }
+                });
+              });
+            });
+            
+            // Calculate category totals across all weeks
+            const categoryTotals = {};
+            Object.keys(categoriesByType).forEach(category => {
+              categoryTotals[category] = weeks.reduce((sum, week) => {
+                return sum + weeklyDataByCategory[week][category].hours;
+              }, 0);
+            });
+            
+            // Get top 3 categories
+            const topCategories = Object.entries(categoryTotals)
+              .filter(([_, total]) => total > 0)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 3)
+              .map(([category]) => category);
+            
+            // Use cost or hours based on global display mode
+            const displayByCost = globalDisplayMode === 'cost';
+            
+            // Create datasets for top categories
+            topCategories.forEach(category => {
+              datasets.push({
+                label: category,
+                data: weeks.map(week => displayByCost ? 
+                  weeklyDataByCategory[week][category].cost : 
+                  weeklyDataByCategory[week][category].hours),
+                borderColor: getCategoryBorderColor(category),
+                backgroundColor: getCategoryColor(category),
+                tension: 0.1
+              });
+            });
+            
+            // Add total dataset
+            datasets.push({
+              label: displayByCost ? 'Total Team Cost' : 'Total Team Hours',
+              data: weeks.map(week => displayByCost ? 
+                weeklyDataByCategory[week].totalCost : 
+                weeklyDataByCategory[week].totalHours),
+              borderColor: '#FF5733',
+              backgroundColor: 'rgba(255, 87, 51, 0.1)',
+              borderWidth: 3,
+              tension: 0.1
+            });
+          } 
+          // For task view, show employees (original implementation)
+          else {
+            // Prepare weekly totals for each employee and for the team
+            const weeklyData = [];
+            weeks.forEach(week => {
+              const weekData = {
+                week,
+                totalHours: 0,
+                totalCost: 0,
+                byEmployee: {}
+              };
+              
+              // Fill data by employee
+              employeeNames.forEach(name => {
+                const employeeWeekData = filteredEmployeesData.filter(row => 
+                  row['Week Range'] === week && row.User.toLowerCase().includes(name)
+                );
+                
+                if (employeeWeekData.length > 0) {
+                  // Calculate detailed task data for this employee/week
+                  const employeeWeekDetailedTaskData = calculateDetailedTaskData(employeeWeekData, taskCategories);
+                  
+                  // Sum up hours and cost
+                  let employeeWeekHours = 0;
+                  let employeeWeekCost = 0;
+                  Object.values(employeeWeekDetailedTaskData).forEach(data => {
+                    employeeWeekHours += data.totalHours;
+                    employeeWeekCost += data.totalCost;
+                  });
+                  
+                  weekData.byEmployee[name] = {
+                    hours: employeeWeekHours,
+                    cost: employeeWeekCost
+                  };
+                  
+                  weekData.totalHours += employeeWeekHours;
+                  weekData.totalCost += employeeWeekCost;
+                } else {
+                  weekData.byEmployee[name] = { hours: 0, cost: 0 };
+                }
+              });
+              
+              weeklyData.push(weekData);
+            });
+            
+            // Use cost or hours based on global display mode
+            const displayByCost = globalDisplayMode === 'cost';
+            
+            // Add a line for each employee
+            employeeNames.forEach(name => {
+              // Only add employees with data
+              if (employeeNames.some(n => weeklyData.some(w => w.byEmployee[n] && 
+                (displayByCost ? w.byEmployee[n].cost > 0 : w.byEmployee[n].hours > 0)))) {
+                datasets.push({
+                  label: name.charAt(0).toUpperCase() + name.slice(1),
+                  data: weeklyData.map(week => displayByCost ? 
+                    week.byEmployee[name]?.cost || 0 : 
+                    week.byEmployee[name]?.hours || 0),
+                  borderColor: employeeColors[name],
+                  backgroundColor: employeeColors[name] + '33', // Adding transparency
+                  borderWidth: 2,
+                  tension: 0.1
+                });
+              }
+            });
+            
+            // Add total team line
+            datasets.push({
+              label: displayByCost ? 'Total Team Cost' : 'Total Team Hours',
+              data: weeklyData.map(week => displayByCost ? week.totalCost : week.totalHours),
+              borderColor: '#FF5733',
+              backgroundColor: 'rgba(255, 87, 51, 0.1)',
+              borderWidth: 3,
+              tension: 0.1
+            });
+          }
+          
+          charts.all.timeLineChart = new Chart(timeCtx, {
+            type: 'line',
+            data: {
+              labels: weeks,
+              datasets: datasets
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const label = context.dataset.label || '';
+                      const value = context.raw || 0;
+                      
+                      if (globalDisplayMode === 'cost') {
+                        return [`${label}: $${value.toFixed(2)}`];
+                      } else {
+                        return [`${label}: ${value.toFixed(1)} hours`];
+                      }
+                    }
+                  }
+                }
+              },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: globalDisplayMode === 'cost' ? 'Cost ($)' : 'Hours'
+                  }
+                }
+              }
+            }
+          });
+        } else {
+          if (charts.all.timeLineChart) {
+            charts.all.timeLineChart.destroy();
+            charts.all.timeLineChart = null;
+          }
+          
+          if (timeChartContainer) {
+            timeChartContainer.style.display = 'none';
+          }
+          
+          if (noDataMessage) {
+            noDataMessage.style.display = 'block';
+            if (uniqueWeeks.length === 1) {
+              noDataMessage.textContent = `Weekly trend data not available - only data for one week (${uniqueWeeks[0]})`;
+            } else {
+              noDataMessage.textContent = `No data available for the selected date range.`;
+            }
+          }
+        }
+      }
+    }
+
+    // Function to update team summary statistics
+    function updateTeamSummary(totalsByCategory, detailedBreakdown, employeeTotals, totalTeamHours, totalTeamCost) {
+      const totalHoursElement = document.getElementById('all-total-hours');
+      const totalHoursSubtitleElement = document.getElementById('all-total-hours-subtitle');
+      const totalCostElement = document.getElementById('all-total-cost');
+      
+      const mostTimeActivityElement = document.getElementById('all-most-time-activity');
+      const mostTimeHoursElement = document.getElementById('all-most-time-hours');
+      const mostTimeCostElement = document.getElementById('all-most-time-cost');
+      
+      const weeklyAverageElement = document.getElementById('all-weekly-average');
+      const weeklyAverageSubtitleElement = document.getElementById('all-weekly-average-subtitle');
+      const weeklyAverageCostElement = document.getElementById('all-weekly-average-cost');
+      
+      // Find most time-consuming activity based on current global level mode
+      let mostTimeActivity = "None";
+      let mostTimeHours = 0;
+      let mostTimePercentage = 0;
+      let mostTimeCost = 0;
+      
+      if (globalLevelMode === 'category') {
+        // Calculate category totals
+        const categoryTotals = {};
+        
+        // Initialize
+        Object.keys(categoriesByType).forEach(category => {
+          categoryTotals[category] = {
+            name: category,
+            hours: 0,
+            cost: 0
+          };
+        });
+        
+        // Sum up
+        detailedBreakdown.forEach(task => {
+          Object.entries(categoriesByType).forEach(([category, tasks]) => {
+            if (tasks.includes(task.name)) {
+              categoryTotals[category].hours += task.hours;
+              categoryTotals[category].cost += task.cost;
+            }
+          });
+        });
+        
+        // Find most time-consuming category
+        const sortedCategories = Object.values(categoryTotals)
+          .filter(c => c.hours > 0)
+          .sort((a, b) => b.hours - a.hours);
+          
+        if (sortedCategories.length > 0) {
+          const topCategory = sortedCategories[0];
+          mostTimeActivity = topCategory.name;
+          mostTimeHours = topCategory.hours;
+          mostTimePercentage = ((mostTimeHours / totalTeamHours) * 100).toFixed(1);
+          mostTimeCost = topCategory.cost;
+        }
+      } else {
+        // Use task-level data (original implementation)
+        if (detailedBreakdown.length > 0) {
+          // Find task with most hours
+          const taskWithMostHours = [...detailedBreakdown].sort((a, b) => b.hours - a.hours)[0];
+          mostTimeActivity = taskWithMostHours.name;
+          mostTimeHours = taskWithMostHours.hours;
+          mostTimePercentage = ((mostTimeHours / totalTeamHours) * 100).toFixed(1);
+          mostTimeCost = taskWithMostHours.cost;
+        }
+      }
+      
+      // Calculate weekly average across the team
+      const uniqueWeeks = [...new Set(filteredEmployeesData.map(row => row['Week Range']))];
+      const teamWeeklyAverage = (totalTeamHours / uniqueWeeks.length).toFixed(1);
+      const teamWeeklyCost = (totalTeamCost / uniqueWeeks.length).toFixed(2);
+      
+      // Find the average hourly rate for the team
+      const activeEmployees = Object.keys(employeeTotals);
+      const avgHourlyRate = activeEmployees.length > 0 ? 
+        totalTeamCost / totalTeamHours : 
+        Object.values(EMPLOYEE_HOURLY_RATES).reduce((sum, rate) => sum + rate, 0) / 
+        Object.values(EMPLOYEE_HOURLY_RATES).length;
+      
+      // Update the elements
+      if (totalHoursElement) {
+        totalHoursElement.textContent = totalTeamHours.toFixed(1);
+      }
+      
+      if (totalHoursSubtitleElement) {
+        totalHoursSubtitleElement.textContent = `Team hours across ${uniqueWeeks.length} week${uniqueWeeks.length !== 1 ? 's' : ''}`;
+      }
+      
+      if (totalCostElement) {
+        totalCostElement.textContent = `$${totalTeamCost.toFixed(2)} total compensation`;
+      }
+      
+      if (mostTimeActivityElement) {
+        mostTimeActivityElement.textContent = mostTimeActivity;
+      }
+      
+      if (mostTimeHoursElement) {
+        mostTimeHoursElement.textContent = `${mostTimeHours.toFixed(1)} hours (${mostTimePercentage}%)`;
+      }
+      
+      if (mostTimeCostElement) {
+        mostTimeCostElement.textContent = `$${mostTimeCost.toFixed(2)} spent on this activity`;
+      }
+      
+      if (weeklyAverageElement) {
+        weeklyAverageElement.textContent = teamWeeklyAverage;
+      }
+      
+      if (weeklyAverageSubtitleElement) {
+        weeklyAverageSubtitleElement.textContent = 'Team hours per week';
+      }
+      
+      if (weeklyAverageCostElement) {
+        weeklyAverageElement.textContent = teamWeeklyAverage;
+      }
+      
+      if (weeklyAverageSubtitleElement) {
+        weeklyAverageSubtitleElement.textContent = 'Team hours per week';
+      }
+      
+      if (weeklyAverageCostElement) {
+        weeklyAverageCostElement.textContent = `$${teamWeeklyCost} weekly team cost`;
+      }
+    }
+    
+    // Initialize the dashboard
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Initialize color caches
+      initializeColorCaches();
+      
+      // Set up tab functionality
+      const tabs = document.querySelectorAll('.tab');
+      const dashboards = document.querySelectorAll('.employee-dashboard');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Update active tab
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          // Show corresponding dashboard
+          const employeeName = tab.getAttribute('data-employee');
+          dashboards.forEach(dashboard => {
+            dashboard.classList.remove('active');
+          });
+          document.getElementById(`${employeeName}-dashboard`).classList.add('active');
+        });
+      });
+      
+      // Initialize filter functionality and file upload
+      initializeFilter();
+      
+      // Try to fetch data from Google Sheets
+      employeesData = await fetchEmployeeData();
+      
+      // If we have data, initialize the dashboard
+      if (employeesData.length > 0) {
+        filteredEmployeesData = [...employeesData];
+        updateAllEmployeeCharts();
+      } else {
+        // If fetching failed, keep the loading message visible
+        // User will need to upload a CSV file
+      }
+    });
+  </script>
+</body>
+</html>
