@@ -74,5 +74,17 @@
     .global-toggle-label {
       font-size: 12px;
     }
+
+    .stats-container {
+      grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+      margin: 10px 0;
+    }
+    
+    .global-toggle-container {
+      flex-direction: column;
+    }
   }
   

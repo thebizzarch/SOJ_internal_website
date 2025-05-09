@@ -803,32 +803,6 @@ class DashboardState {
   }
 }
 
-// Example test structure
-describe('DataProcessor', () => {
-  describe('calculateDetailedTaskData', () => {
-    it('should correctly aggregate task data', () => {
-      const testData = [...];
-      const result = calculateDetailedTaskData(testData);
-      expect(result).toMatchSnapshot();
-    });
-  });
-});
-
-/* Add more breakpoints and mobile-specific styles */
-@media (max-width: 480px) {
-  .stats-container {
-    grid-template-columns: 1fr;
-  }
-  
-  .chart-container {
-    margin: 10px 0;
-  }
-  
-  .global-toggle-container {
-    flex-direction: column;
-  }
-}
-
 function renderLoadingState(container) {
   container.innerHTML = `
     <div class="loading-skeleton">
