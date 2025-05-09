@@ -1,0 +1,105 @@
+/* Week range selector container */
+.week-selector {
+    background-color: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 24px;
+  }
+  
+  /* Search input styles */
+  #search-input {
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  
+  #search-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  }
+  
+  #search-clear {
+    transition: color 0.3s;
+  }
+  
+  #search-clear:hover {
+    color: #dc2626;
+  }
+  
+  /* File import styles */
+  .file-import {
+    margin-top: 10px;
+    padding: 10px;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    text-align: center;
+  }
+  
+  .file-import.active {
+    border-color: #2563eb;
+    background-color: rgba(37, 99, 235, 0.05);
+  }
+  
+  /* Filter controls styling */
+  #active-filter {
+    margin-top: 12px;
+    font-size: 14px;
+  }
+  
+  #filter-text {
+    font-weight: 500;
+    color: #2563eb;
+  }
+  
+  /* Button styling */
+  button {
+    cursor: pointer;
+    transition: background-color 0.3s, opacity 0.3s;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  button:hover {
+    opacity: 0.9;
+  }
+  
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  /* Specific button styles */
+  #refresh-button {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+  }
+  
+  #apply-filter {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+  }
+  
+  #reset-filter {
+    background-color: #e5e7eb;
+    color: #374151;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+  }
+  
+  #file-select-button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 14px;
+  }

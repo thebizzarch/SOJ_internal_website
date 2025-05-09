@@ -1,0 +1,78 @@
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .dashboard-container {
+      padding: 15px;
+    }
+    
+    .chart-container {
+      padding: 12px;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .stats-container,
+    .charts-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .full-width-chart {
+      grid-column: auto;
+    }
+    
+    .tabs {
+      flex-wrap: wrap;
+    }
+    
+    .tab {
+      flex: 1 0 auto;
+      text-align: center;
+      padding: 10px;
+    }
+    
+    .week-selector {
+      padding: 12px;
+    }
+    
+    .stat-card {
+      padding: 12px;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    body {
+      padding: 10px;
+    }
+    
+    .dashboard-container {
+      padding: 10px;
+    }
+    
+    .dashboard-title {
+      font-size: 20px;
+    }
+    
+    .stat-title {
+      font-size: 14px;
+    }
+    
+    .stat-value {
+      font-size: 20px;
+    }
+    
+    .stat-subtitle {
+      font-size: 12px;
+    }
+    
+    .chart-title {
+      font-size: 14px;
+    }
+    
+    .global-toggle-label {
+      font-size: 12px;
+    }
+  }
+  
