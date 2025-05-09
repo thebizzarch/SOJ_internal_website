@@ -211,32 +211,42 @@ function initializeFilterControls() {
   
   // File select button
   fileSelectButton.addEventListener('click', () => {
+    console.log('File select button clicked');
     fileInput.click();
   });
   
   // File input change
   fileInput.addEventListener('change', (event) => {
+    console.log('File input changed');
     if (event.target.files.length > 0) {
-      handleFileUpload(event.target.files[0]);
+      const file = event.target.files[0];
+      console.log('Selected file:', file.name);
+      handleFileUpload(file);
     }
   });
   
   // Drag and drop for file import area
   fileImportArea.addEventListener('dragover', (event) => {
     event.preventDefault();
+    event.stopPropagation();
     fileImportArea.classList.add('active');
   });
   
-  fileImportArea.addEventListener('dragleave', () => {
+  fileImportArea.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     fileImportArea.classList.remove('active');
   });
   
   fileImportArea.addEventListener('drop', (event) => {
     event.preventDefault();
+    event.stopPropagation();
     fileImportArea.classList.remove('active');
     
     if (event.dataTransfer.files.length > 0) {
-      handleFileUpload(event.dataTransfer.files[0]);
+      const file = event.dataTransfer.files[0];
+      console.log('Dropped file:', file.name);
+      handleFileUpload(file);
     }
   });
   

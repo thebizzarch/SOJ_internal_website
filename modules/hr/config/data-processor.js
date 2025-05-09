@@ -31,36 +31,35 @@ export async function fetchEmployeeData(silent = false) {
     
     // Try multiple methods to fetch the data
     const methods = [
-      // Method 1: Direct fetch with no-cors
+      // Method 1: Using gviz format with CORS proxy
       async () => {
-        const response = await fetch(SPREADSHEET_URL, {
-          mode: 'no-cors',
-          headers: { 'Accept': 'text/csv' }
-        });
+        const gvizUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv`;
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(gvizUrl);
+        const response = await fetch(proxyUrl);
         if (response.ok) {
-          return { text: await response.text(), method: 'direct' };
+          return { text: await response.text(), method: 'gviz-proxy' };
         }
-        throw new Error('Direct fetch failed');
+        throw new Error('Gviz proxy fetch failed');
       },
       
-      // Method 2: Using gviz format
-      async () => {
-        const gvizUrl = SPREADSHEET_URL.replace('export?format=csv', 'gviz/tq?tqx=out:csv');
-        const response = await fetch(gvizUrl);
-        if (response.ok) {
-          return { text: await response.text(), method: 'gviz' };
-        }
-        throw new Error('Gviz fetch failed');
-      },
-      
-      // Method 3: Using CORS proxy
+      // Method 2: Direct fetch with CORS proxy
       async () => {
         const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(SPREADSHEET_URL);
         const response = await fetch(proxyUrl);
         if (response.ok) {
-          return { text: await response.text(), method: 'proxy' };
+          return { text: await response.text(), method: 'direct-proxy' };
         }
-        throw new Error('Proxy fetch failed');
+        throw new Error('Direct proxy fetch failed');
+      },
+      
+      // Method 3: Using alternative CORS proxy
+      async () => {
+        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(SPREADSHEET_URL);
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+          return { text: await response.text(), method: 'allorigins-proxy' };
+        }
+        throw new Error('AllOrigins proxy fetch failed');
       }
     ];
     
