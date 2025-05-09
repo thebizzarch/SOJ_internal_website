@@ -137,15 +137,39 @@ function initializeFilterControls() {
   const fileImportArea = document.getElementById('file-import-area');
   const fileSelectButton = document.getElementById('file-select-button');
   
+  if (!startWeekSelect || !endWeekSelect || !applyFilterButton || !resetFilterButton || 
+      !refreshButton || !fileInput || !fileImportArea || !fileSelectButton) {
+    console.error('Required filter control elements not found');
+    return;
+  }
+  
   // Global display toggle setup
   const globalToggleSwitch = document.getElementById('global-display-toggle');
   const globalHoursLabel = document.getElementById('global-hours-label');
   const globalCostLabel = document.getElementById('global-cost-label');
   
+  if (globalToggleSwitch && globalHoursLabel && globalCostLabel) {
+    globalToggleSwitch.addEventListener('change', () => {
+      globalDisplayMode = globalToggleSwitch.checked ? 'cost' : 'hours';
+      globalHoursLabel.classList.toggle('active', !globalToggleSwitch.checked);
+      globalCostLabel.classList.toggle('active', globalToggleSwitch.checked);
+      updateAllEmployeeCharts();
+    });
+  }
+  
   // Category/Task toggle setup
   const categoryTaskToggle = document.getElementById('category-task-toggle');
   const categoryLabel = document.getElementById('global-category-label');
   const taskLabel = document.getElementById('global-task-label');
+  
+  if (categoryTaskToggle && categoryLabel && taskLabel) {
+    categoryTaskToggle.addEventListener('change', () => {
+      globalLevelMode = categoryTaskToggle.checked ? 'task' : 'category';
+      categoryLabel.classList.toggle('active', !categoryTaskToggle.checked);
+      taskLabel.classList.toggle('active', categoryTaskToggle.checked);
+      updateAllEmployeeCharts();
+    });
+  }
 
   // Apply filter button
   applyFilterButton.addEventListener('click', () => {
@@ -153,7 +177,14 @@ function initializeFilterControls() {
     const endWeek = endWeekSelect.value;
     
     if (!validateWeekSelection(startWeek, endWeek)) {
-      alert('Invalid selection: Start week must be before or equal to end week');
+      const errorMessage = document.getElementById('filter-error-message');
+      if (errorMessage) {
+        errorMessage.textContent = 'Invalid selection: Start week must be before or equal to end week';
+        errorMessage.style.display = 'block';
+        setTimeout(() => {
+          errorMessage.style.display = 'none';
+        }, 5000);
+      }
       return;
     }
     
@@ -180,10 +211,14 @@ function initializeFilterControls() {
     endWeekSelect.value = 'all';
     
     // Reset search
-    searchFilter.reset();
+    if (searchFilter) {
+      searchFilter.reset();
+    }
     
     // Reset state
-    dashboardState.resetAllFilters();
+    if (dashboardState) {
+      dashboardState.resetAllFilters();
+    }
     
     // Reset filtered data
     filteredEmployeesData = [...employeesData];
@@ -195,17 +230,46 @@ function initializeFilterControls() {
   
   // Refresh button
   refreshButton.addEventListener('click', async () => {
-    // Fetch fresh data
-    const newData = await fetchEmployeeData();
-    
-    if (newData.length > 0) {
-      employeesData = newData;
+    try {
+      // Show loading state
+      loadingState.show('Refreshing data...');
       
-      // Update filtered data based on current filter settings
-      filteredEmployeesData = filterDataByWeekRange(employeesData, activeStartWeek, activeEndWeek);
+      // Fetch fresh data
+      const newData = await fetchEmployeeData();
       
-      // Update all charts
-      updateAllEmployeeCharts();
+      if (newData.length > 0) {
+        employeesData = newData;
+        
+        // Update filtered data based on current filter settings
+        filteredEmployeesData = filterDataByWeekRange(employeesData, activeStartWeek, activeEndWeek);
+        
+        // Update all charts
+        updateAllEmployeeCharts();
+        
+        // Show success message
+        const successMessage = document.getElementById('refresh-success-message');
+        if (successMessage) {
+          successMessage.textContent = 'Data refreshed successfully';
+          successMessage.style.display = 'block';
+          setTimeout(() => {
+            successMessage.style.display = 'none';
+          }, 5000);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      
+      // Show error message
+      const errorMessage = document.getElementById('refresh-error-message');
+      if (errorMessage) {
+        errorMessage.textContent = error.message;
+        errorMessage.style.display = 'block';
+        setTimeout(() => {
+          errorMessage.style.display = 'none';
+        }, 5000);
+      }
+    } finally {
+      loadingState.hide();
     }
   });
   
@@ -249,151 +313,92 @@ function initializeFilterControls() {
       handleFileUpload(file);
     }
   });
-  
-  // Global display toggle event handler
-  globalToggleSwitch.addEventListener('click', () => {
-    // Toggle the global display mode
-    globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
-    
-    // Update UI
-    if (globalDisplayMode === 'cost') {
-      globalToggleSwitch.classList.add('active');
-      globalHoursLabel.classList.remove('active');
-      globalCostLabel.classList.add('active');
-    } else {
-      globalToggleSwitch.classList.remove('active');
-      globalHoursLabel.classList.add('active');
-      globalCostLabel.classList.remove('active');
-    }
-    
-    // Update all charts to reflect the new display mode
-    updateAllEmployeeCharts();
-  });
-  
-  // Hours label click handler
-  globalHoursLabel.addEventListener('click', () => {
-    if (globalDisplayMode !== 'hours') {
-      globalDisplayMode = 'hours';
-      globalToggleSwitch.classList.remove('active');
-      globalHoursLabel.classList.add('active');
-      globalCostLabel.classList.remove('active');
-      updateAllEmployeeCharts();
-    }
-  });
-  
-  // Cost label click handler
-  globalCostLabel.addEventListener('click', () => {
-    if (globalDisplayMode !== 'cost') {
-      globalDisplayMode = 'cost';
-      globalToggleSwitch.classList.add('active');
-      globalHoursLabel.classList.remove('active');
-      globalCostLabel.classList.add('active');
-      updateAllEmployeeCharts();
-    }
-  });
-  
-  // Category/Task toggle event handler
-  categoryTaskToggle.addEventListener('click', () => {
-    // Toggle the global level mode
-    globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
-    
-    // Update UI
-    if (globalLevelMode === 'task') {
-      categoryTaskToggle.classList.add('active');
-      categoryLabel.classList.remove('active');
-      taskLabel.classList.add('active');
-    } else {
-      categoryTaskToggle.classList.remove('active');
-      categoryLabel.classList.add('active');
-      taskLabel.classList.remove('active');
-    }
-    
-    // Update all charts to reflect the new level mode
-    updateAllEmployeeCharts();
-  });
-  
-  // Category label click handler
-  categoryLabel.addEventListener('click', () => {
-    if (globalLevelMode !== 'category') {
-      globalLevelMode = 'category';
-      categoryTaskToggle.classList.remove('active');
-      categoryLabel.classList.add('active');
-      taskLabel.classList.remove('active');
-      updateAllEmployeeCharts();
-    }
-  });
-  
-  // Task label click handler
-  taskLabel.addEventListener('click', () => {
-    if (globalLevelMode !== 'task') {
-      globalLevelMode = 'task';
-      categoryTaskToggle.classList.add('active');
-      categoryLabel.classList.remove('active');
-      taskLabel.classList.add('active');
-      updateAllEmployeeCharts();
-    }
-  });
 }
 
 /**
  * Handle file upload
- * @param {File} file - Uploaded CSV file
+ * @param {File} file - The uploaded CSV file
  */
-function handleFileUpload(file) {
-  loadingState.show('Processing CSV file...');
-  
-  const refreshIcon = document.getElementById('refresh-icon');
-  refreshIcon.classList.add('spin-animation');
-  
-  // Use Papa Parse to parse the CSV
-  Papa.parse(file, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete: function(results) {
-      try {
-        if (results.errors.length > 0) {
-          console.warn('CSV parsing had errors:', results.errors);
-        }
-        
-        if (results.data.length === 0) {
-          throw new ValidationError('No data found in the CSV file.');
-        }
-        
-        // Update global data
-        employeesData = results.data;
-        filteredEmployeesData = [...employeesData];
-        
-        // Update data source indicator
-        updateDataSourceIndicator('disconnected', 'Using manually uploaded CSV file');
-        
-        // Update last updated time
-        lastUpdated = new Date();
-        document.getElementById('last-updated-time').textContent = lastUpdated.toLocaleString();
-        
-        // Update week range dropdowns
-        updateWeekRangeOptions(results.data);
-        
-        // Update all charts
-        updateAllEmployeeCharts();
-        
-        // Hide loading state
-        loadingState.hide();
-        
-      } catch (error) {
-        errorHandler.handleError(error, { context: 'file-upload' });
-        loadingState.showError(error);
-      } finally {
-        refreshIcon.classList.remove('spin-animation');
-      }
-    },
-    error: function(error) {
-      const fetchError = new DataFetchError('Error parsing CSV file', { originalError: error });
-      errorHandler.handleError(fetchError, { context: 'file-upload' });
-      loadingState.showError(fetchError);
-      refreshIcon.classList.remove('spin-animation');
+async function handleFileUpload(file) {
+  try {
+    console.log('Processing file upload:', file.name);
+    
+    // Show loading state
+    loadingState.show('Processing file...');
+    
+    // Validate file type
+    if (!file.name.endsWith('.csv')) {
+      throw new ValidationError('Please upload a CSV file');
     }
-  });
+    
+    // Read file contents
+    const text = await file.text();
+    
+    // Parse CSV
+    const parseResult = Papa.parse(text, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true
+    });
+    
+    if (parseResult.errors.length > 0) {
+      console.warn('CSV parsing had errors:', parseResult.errors);
+      throw new ValidationError('Error parsing CSV file. Please check the file format.');
+    }
+    
+    if (parseResult.data.length === 0) {
+      throw new ValidationError('No data found in the CSV file');
+    }
+    
+    // Update data
+    employeesData = parseResult.data;
+    filteredEmployeesData = [...employeesData];
+    
+    // Update data source indicator
+    updateDataSourceIndicator('connected', 'Connected via CSV file');
+    
+    // Update last updated time
+    const lastUpdated = new Date();
+    const lastUpdatedElement = document.getElementById('last-updated-time');
+    if (lastUpdatedElement) {
+      lastUpdatedElement.textContent = lastUpdated.toLocaleString();
+    }
+    
+    // Update all charts
+    updateAllEmployeeCharts();
+    
+    // Hide loading state
+    loadingState.hide();
+    
+    // Show success message
+    const successMessage = document.getElementById('upload-success-message');
+    if (successMessage) {
+      successMessage.textContent = `Successfully loaded ${parseResult.data.length} records from ${file.name}`;
+      successMessage.style.display = 'block';
+      setTimeout(() => {
+        successMessage.style.display = 'none';
+      }, 5000);
+    }
+    
+  } catch (error) {
+    console.error('Error processing file:', error);
+    
+    // Show error message
+    const errorMessage = document.getElementById('upload-error-message');
+    if (errorMessage) {
+      errorMessage.textContent = error.message;
+      errorMessage.style.display = 'block';
+      setTimeout(() => {
+        errorMessage.style.display = 'none';
+      }, 5000);
+    }
+    
+    // Hide loading state
+    loadingState.hide();
+    
+    // Update data source indicator
+    updateDataSourceIndicator('disconnected', 'Error processing file');
+  }
 }
 
 /**

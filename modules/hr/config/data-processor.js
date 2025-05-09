@@ -3,7 +3,7 @@
  * Handles data fetching, parsing, and calculations
  */
 
-import { SPREADSHEET_URL } from './metrics-config.js';
+import { SPREADSHEET_URL, SPREADSHEET_CONFIG } from './metrics-config.js';
 import { getHourlyRate, getTaskCategories } from '../services/utils.js';
 import { TASK_CATEGORIES } from '../config/metrics-config.js';
 import { DataFetchError } from '../utils/errors.js';
@@ -17,14 +17,16 @@ export async function fetchEmployeeData(silent = false) {
   try {
     // Show loading indicator unless silent refresh
     const loadingMessage = document.getElementById('loading-message');
-    if (!silent) {
+    if (!silent && loadingMessage) {
       loadingMessage.style.display = 'block';
       loadingMessage.textContent = 'Loading data from Google Sheets...';
     }
     
     // Start refresh icon animation
     const refreshIcon = document.getElementById('refresh-icon');
-    refreshIcon.classList.add('spin-animation');
+    if (refreshIcon) {
+      refreshIcon.classList.add('spin-animation');
+    }
     
     let csvText = null;
     let fetchMethod = '';
@@ -33,6 +35,9 @@ export async function fetchEmployeeData(silent = false) {
     const methods = [
       // Method 1: Using gviz format with CORS proxy
       async () => {
+        if (!SPREADSHEET_CONFIG?.spreadsheetId) {
+          throw new Error('Spreadsheet ID not configured');
+        }
         const gvizUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_CONFIG.spreadsheetId}/gviz/tq?tqx=out:csv`;
         const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(gvizUrl);
         const response = await fetch(proxyUrl);
@@ -44,6 +49,9 @@ export async function fetchEmployeeData(silent = false) {
       
       // Method 2: Direct fetch with CORS proxy
       async () => {
+        if (!SPREADSHEET_URL) {
+          throw new Error('Spreadsheet URL not configured');
+        }
         const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(SPREADSHEET_URL);
         const response = await fetch(proxyUrl);
         if (response.ok) {
@@ -54,6 +62,9 @@ export async function fetchEmployeeData(silent = false) {
       
       // Method 3: Using alternative CORS proxy
       async () => {
+        if (!SPREADSHEET_URL) {
+          throw new Error('Spreadsheet URL not configured');
+        }
         const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(SPREADSHEET_URL);
         const response = await fetch(proxyUrl);
         if (response.ok) {
@@ -72,7 +83,7 @@ export async function fetchEmployeeData(silent = false) {
         console.log(`Successfully fetched data using ${fetchMethod} method`);
         break;
       } catch (error) {
-        console.log(`Method ${fetchMethod} failed:`, error);
+        console.warn(`Method ${fetchMethod} failed:`, error);
         continue;
       }
     }
@@ -81,17 +92,23 @@ export async function fetchEmployeeData(silent = false) {
     if (!csvText) {
       updateDataSourceIndicator('disconnected', 'Could not connect to Google Sheets');
       
-      if (!silent) {
+      if (!silent && loadingMessage) {
         loadingMessage.innerHTML = 
           'Could not load data from Google Sheets due to browser security restrictions.<br><br>' +
           'Please use the file upload option to load your CSV file.';
       }
       
-      refreshIcon.classList.remove('spin-animation');
+      if (refreshIcon) {
+        refreshIcon.classList.remove('spin-animation');
+      }
       
       // Show fallback text in file import area
-      document.getElementById('file-import-primary-text').classList.add('hidden');
-      document.getElementById('file-import-fallback-text').classList.remove('hidden');
+      const primaryText = document.getElementById('file-import-primary-text');
+      const fallbackText = document.getElementById('file-import-fallback-text');
+      if (primaryText && fallbackText) {
+        primaryText.classList.add('hidden');
+        fallbackText.classList.remove('hidden');
+      }
       
       throw new DataFetchError('Failed to fetch data from Google Sheets', {
         lastMethod: fetchMethod
@@ -120,18 +137,27 @@ export async function fetchEmployeeData(silent = false) {
     updateDataSourceIndicator('connected', `Connected to Google Sheets via ${fetchMethod} method`);
     
     // Show primary text in file import area
-    document.getElementById('file-import-primary-text').classList.remove('hidden');
-    document.getElementById('file-import-fallback-text').classList.add('hidden');
+    const primaryText = document.getElementById('file-import-primary-text');
+    const fallbackText = document.getElementById('file-import-fallback-text');
+    if (primaryText && fallbackText) {
+      primaryText.classList.remove('hidden');
+      fallbackText.classList.add('hidden');
+    }
     
     // Update last updated time
     const lastUpdated = new Date();
-    document.getElementById('last-updated-time').textContent = lastUpdated.toLocaleString();
+    const lastUpdatedElement = document.getElementById('last-updated-time');
+    if (lastUpdatedElement) {
+      lastUpdatedElement.textContent = lastUpdated.toLocaleString();
+    }
     
     // Stop refresh icon animation
-    refreshIcon.classList.remove('spin-animation');
+    if (refreshIcon) {
+      refreshIcon.classList.remove('spin-animation');
+    }
     
     // Hide loading message if not silent
-    if (!silent) {
+    if (!silent && loadingMessage) {
       loadingMessage.style.display = 'none';
     }
     
@@ -143,15 +169,25 @@ export async function fetchEmployeeData(silent = false) {
     updateDataSourceIndicator('disconnected', 'Error connecting to Google Sheets');
     
     if (!silent) {
-      document.getElementById('loading-message').innerHTML = 
-        `Error: ${error.message} <br><br>Please try using the file upload option instead.`;
+      const loadingMessage = document.getElementById('loading-message');
+      if (loadingMessage) {
+        loadingMessage.innerHTML = 
+          `Error: ${error.message} <br><br>Please try using the file upload option instead.`;
+      }
     }
     
-    document.getElementById('refresh-icon').classList.remove('spin-animation');
+    const refreshIcon = document.getElementById('refresh-icon');
+    if (refreshIcon) {
+      refreshIcon.classList.remove('spin-animation');
+    }
     
     // Show fallback text in file import area
-    document.getElementById('file-import-primary-text').classList.add('hidden');
-    document.getElementById('file-import-fallback-text').classList.remove('hidden');
+    const primaryText = document.getElementById('file-import-primary-text');
+    const fallbackText = document.getElementById('file-import-fallback-text');
+    if (primaryText && fallbackText) {
+      primaryText.classList.add('hidden');
+      fallbackText.classList.remove('hidden');
+    }
     
     throw error;
   }
