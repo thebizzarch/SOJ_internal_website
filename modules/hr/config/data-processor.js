@@ -29,58 +29,52 @@ export async function fetchEmployeeData(silent = false) {
     let csvText = null;
     let fetchMethod = '';
     
-    // Method 1: Try direct fetch with no-cors mode
-    try {
-      const response = await fetch(SPREADSHEET_URL, {
-        mode: 'no-cors',
-        headers: {
-          'Accept': 'text/csv'
-        }
-      });
-      
-      if (response.ok) {
-        csvText = await response.text();
-        fetchMethod = 'direct';
-        console.log('Successfully fetched data with direct method');
-      }
-    } catch (directFetchError) {
-      console.log('Direct fetch failed, trying alternate methods...', directFetchError);
-    }
-    
-    // Method 2: Try with CORS proxy
-    if (!csvText) {
-      try {
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/' + SPREADSHEET_URL;
-        const proxyResponse = await fetch(proxyUrl, {
-          headers: {
-            'Origin': window.location.origin,
-            'X-Requested-With': 'XMLHttpRequest'
-          }
+    // Try multiple methods to fetch the data
+    const methods = [
+      // Method 1: Direct fetch with no-cors
+      async () => {
+        const response = await fetch(SPREADSHEET_URL, {
+          mode: 'no-cors',
+          headers: { 'Accept': 'text/csv' }
         });
-        
-        if (proxyResponse.ok) {
-          csvText = await proxyResponse.text();
-          fetchMethod = 'proxy';
-          console.log('Successfully fetched data with CORS proxy');
+        if (response.ok) {
+          return { text: await response.text(), method: 'direct' };
         }
-      } catch (proxyError) {
-        console.log('CORS proxy fetch failed...', proxyError);
-      }
-    }
-    
-    // Method 3: Try with alternative export format
-    if (!csvText) {
-      try {
+        throw new Error('Direct fetch failed');
+      },
+      
+      // Method 2: Using gviz format
+      async () => {
         const gvizUrl = SPREADSHEET_URL.replace('export?format=csv', 'gviz/tq?tqx=out:csv');
-        const gvizResponse = await fetch(gvizUrl);
-        
-        if (gvizResponse.ok) {
-          csvText = await gvizResponse.text();
-          fetchMethod = 'gviz';
-          console.log('Successfully fetched data with gviz export');
+        const response = await fetch(gvizUrl);
+        if (response.ok) {
+          return { text: await response.text(), method: 'gviz' };
         }
-      } catch (gvizError) {
-        console.log('Gviz export fetch failed...', gvizError);
+        throw new Error('Gviz fetch failed');
+      },
+      
+      // Method 3: Using CORS proxy
+      async () => {
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(SPREADSHEET_URL);
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+          return { text: await response.text(), method: 'proxy' };
+        }
+        throw new Error('Proxy fetch failed');
+      }
+    ];
+    
+    // Try each method in sequence
+    for (const method of methods) {
+      try {
+        const result = await method();
+        csvText = result.text;
+        fetchMethod = result.method;
+        console.log(`Successfully fetched data using ${fetchMethod} method`);
+        break;
+      } catch (error) {
+        console.log(`Method ${fetchMethod} failed:`, error);
+        continue;
       }
     }
     
