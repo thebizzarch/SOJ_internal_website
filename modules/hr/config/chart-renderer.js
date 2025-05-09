@@ -848,18 +848,6 @@ function renderErrorState(container, error) {
   `;
 }
 
-interface EmployeeData {
-  User: string;
-  WeekRange: string;
-  [key: string]: number | string;
-}
-
-interface ChartConfig {
-  type: 'pie' | 'bar' | 'line';
-  data: ChartData;
-  options: ChartOptions;
-}
-
 /**
  * Initializes the employee dashboard with the specified configuration
  * @param {Object} config - Dashboard configuration
