@@ -1,0 +1,49 @@
+/* Stats grid layout */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  /* Individual stat cards */
+  .stat-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  .stat-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+  }
+  
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2563eb;
+    margin-bottom: 4px;
+  }
+  
+  .stat-value.green {
+    color: #059669;
+  }
+  
+  .stat-value.purple {
+    color: #7c3aed;
+  }
+  
+  .stat-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  
+  .cost-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #059669;
+    margin-top: 8px;
+  }
