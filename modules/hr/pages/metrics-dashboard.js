@@ -144,15 +144,16 @@ function initializeFilterControls() {
   }
   
   // Global display toggle setup
-  const globalToggleSwitch = document.getElementById('global-display-toggle');
+  const globalDisplayToggle = document.getElementById('global-display-toggle');
   const globalHoursLabel = document.getElementById('global-hours-label');
   const globalCostLabel = document.getElementById('global-cost-label');
   
-  if (globalToggleSwitch && globalHoursLabel && globalCostLabel) {
-    globalToggleSwitch.addEventListener('change', () => {
-      globalDisplayMode = globalToggleSwitch.checked ? 'cost' : 'hours';
-      globalHoursLabel.classList.toggle('active', !globalToggleSwitch.checked);
-      globalCostLabel.classList.toggle('active', globalToggleSwitch.checked);
+  if (globalDisplayToggle && globalHoursLabel && globalCostLabel) {
+    globalDisplayToggle.addEventListener('click', () => {
+      globalDisplayToggle.classList.toggle('active');
+      globalDisplayMode = globalDisplayToggle.classList.contains('active') ? 'cost' : 'hours';
+      globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
+      globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
       updateAllEmployeeCharts();
     });
   }
@@ -163,10 +164,11 @@ function initializeFilterControls() {
   const taskLabel = document.getElementById('global-task-label');
   
   if (categoryTaskToggle && categoryLabel && taskLabel) {
-    categoryTaskToggle.addEventListener('change', () => {
-      globalLevelMode = categoryTaskToggle.checked ? 'task' : 'category';
-      categoryLabel.classList.toggle('active', !categoryTaskToggle.checked);
-      taskLabel.classList.toggle('active', categoryTaskToggle.checked);
+    categoryTaskToggle.addEventListener('click', () => {
+      categoryTaskToggle.classList.toggle('active');
+      globalLevelMode = categoryTaskToggle.classList.contains('active') ? 'task' : 'category';
+      categoryLabel.classList.toggle('active', globalLevelMode === 'category');
+      taskLabel.classList.toggle('active', globalLevelMode === 'task');
       updateAllEmployeeCharts();
     });
   }
