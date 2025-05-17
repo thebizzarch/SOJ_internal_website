@@ -4,10 +4,26 @@
  */
 
 // Import modules
+import dashboardState from '../utils/state-manager.js';  // Adjust the path if needed
 import { SPREADSHEET_CONFIG, EMPLOYEE_RATES, TASK_CATEGORIES, TASK_ORDER, EMPLOYEE_COLORS } from '../config/metrics-config.js';
-import { initializeColorCaches, updateChartTitles, initializeTaskPieChart, initializeBarChart, initializeTimeLineChart, initializeComparisonChart } from '../config/chart-renderer.js';
+//previous import function //import { initializeColorCaches, updateChartTitles, initializeTaskPieChart, initializeBarChart, initializeTimeLineChart, initializeComparisonChart } from '../config/chart-renderer.js';
+import { 
+  initializeColorCaches, 
+  updateChartTitles, 
+  initializeTaskPieChart, 
+  initializeBarChart, 
+  initializeTimeLineChart, 
+  initializeComparisonChart,
+  getCategoryColor,
+  getCategoryBorderColor,
+  getTaskColor,
+  getTaskBorderColor
+} from '../config/chart-renderer.js';
+
+
 import { fetchEmployeeData, calculateDetailedTaskData, updateDataSourceIndicator } from '../config/data-processor.js';
 import { getTaskCategories, filterDataByWeekRange, validateWeekSelection, getHourlyRate } from '../config/utils.js';
+import dashboardState from '../state-manager.js'; // Adjust path as needed
 
 // Import components
 import { LoadingState } from '../components/loading-state.js';
@@ -25,10 +41,17 @@ let autoRefreshIntervalId = null;
 let dataSourceConnected = false;
 
 // Display mode state (hours or cost)
-let globalDisplayMode = 'hours';
+//let globalDisplayMode = 'hours';
 
 // View level state (category or task)
-let globalLevelMode = 'category';
+//let globalLevelMode = 'category';
+
+
+// Display mode state (hours or cost)
+let globalDisplayMode = dashboardState ? dashboardState.getDisplayMode() : 'hours';
+
+// View level state (category or task)
+let globalLevelMode = dashboardState ? dashboardState.getLevelMode() : 'category';
 
 // Initialize components
 const loadingState = new LoadingState();
@@ -54,7 +77,7 @@ async function initializeDashboard() {
     setupTabNavigation();
     
     // Initialize filter and file upload controls
-    initializeFilterControls();
+    globalDisplayToggle();
     
     // Initialize data source indicator
     updateDataSourceIndicator('disconnected', 'Connecting to data source...');
@@ -127,7 +150,10 @@ function setupTabNavigation() {
 /**
  * Initialize filter controls and global toggles
  */
-function initializeFilterControls() {
+/**
+ * Initialize filter controls and global toggles
+ */
+function globalDisplayToggle() {
   const startWeekSelect = document.getElementById('start-week');
   const endWeekSelect = document.getElementById('end-week');
   const applyFilterButton = document.getElementById('apply-filter');
@@ -149,13 +175,46 @@ function initializeFilterControls() {
   const globalCostLabel = document.getElementById('global-cost-label');
   
   if (globalDisplayToggle && globalHoursLabel && globalCostLabel) {
-    globalDisplayToggle.addEventListener('click', () => {
-      globalDisplayToggle.classList.toggle('active');
-      globalDisplayMode = globalDisplayToggle.classList.contains('active') ? 'cost' : 'hours';
-      globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
-      globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
-      updateAllEmployeeCharts();
-    });
+    // Set initial state based on globalDisplayMode
+    globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
+    globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
+    globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
+    
+
+
+
+    // Add click event listener
+globalDisplayToggle.addEventListener('click', () => {
+  // Toggle the display mode
+  globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
+  
+  // Update state manager
+  if (dashboardState) {
+    dashboardState.setDisplayMode(globalDisplayMode);
+  }
+  
+  // Update UI to match the new state
+  globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
+  globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
+  globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
+  
+  // Update charts with new display mode
+  updateAllEmployeeCharts();
+});
+    
+    // Add click event listener
+    //globalDisplayToggle.addEventListener('click', () => {
+      // Toggle the display mode
+      //globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
+      
+      // Update UI to match the new state
+      //globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
+      //globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
+      //globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
+      
+      // Update charts with new display mode
+      //updateAllEmployeeCharts();
+    //});
   }
   
   // Category/Task toggle setup
@@ -164,13 +223,44 @@ function initializeFilterControls() {
   const taskLabel = document.getElementById('global-task-label');
   
   if (categoryTaskToggle && categoryLabel && taskLabel) {
-    categoryTaskToggle.addEventListener('click', () => {
-      categoryTaskToggle.classList.toggle('active');
-      globalLevelMode = categoryTaskToggle.classList.contains('active') ? 'task' : 'category';
-      categoryLabel.classList.toggle('active', globalLevelMode === 'category');
-      taskLabel.classList.toggle('active', globalLevelMode === 'task');
-      updateAllEmployeeCharts();
+    // Set initial state based on globalLevelMode
+    categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
+    categoryLabel.classList.toggle('active', globalLevelMode === 'category');
+    taskLabel.classList.toggle('active', globalLevelMode === 'task');
+    
+
+
+    // Add click event listener
+categoryTaskToggle.addEventListener('click', () => {
+  // Toggle the level mode
+  globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
+  
+  // Update state manager
+  if (dashboardState) {
+    dashboardState.setLevelMode(globalLevelMode);
+  }
+  
+  // Update UI to match the new state
+  categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
+  categoryLabel.classList.toggle('active', globalLevelMode === 'category');
+  taskLabel.classList.toggle('active', globalLevelMode === 'task');
+  
+  // Update charts with new level mode
+  updateAllEmployeeCharts();
     });
+    // Add click event listener
+    //categoryTaskToggle.addEventListener('click', () => {
+      // Toggle the level mode
+      //globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
+      
+      // Update UI to match the new state
+      //categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
+      //categoryLabel.classList.toggle('active', globalLevelMode === 'category');
+      //taskLabel.classList.toggle('active', globalLevelMode === 'task');
+      
+      // Update charts with new level mode
+     //updateAllEmployeeCharts();
+    //});
   }
 
   // Apply filter button
