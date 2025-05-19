@@ -233,4 +233,4 @@ class ErrorHandler {
 }
 
 // Export singleton instance
-export const errorHandler = new ErrorHandler(); 
+// export const errorHandler = new ErrorHandler(); // Removed duplicate declaration 
