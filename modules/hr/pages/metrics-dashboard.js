@@ -4,7 +4,7 @@
  */
 
 // Import modules
-import dashboardState from '../utils/state-manager.js';  // Adjust the path if needed
+import dashboardState from '../services/state-manager.js';  // Correct path to state manager
 import { SPREADSHEET_CONFIG, EMPLOYEE_RATES, TASK_CATEGORIES, TASK_ORDER, EMPLOYEE_COLORS } from '../config/metrics-config.js';
 //previous import function //import { initializeColorCaches, updateChartTitles, initializeTaskPieChart, initializeBarChart, initializeTimeLineChart, initializeComparisonChart } from '../config/chart-renderer.js';
 import { 
@@ -23,7 +23,7 @@ import {
 
 import { fetchEmployeeData, calculateDetailedTaskData, updateDataSourceIndicator } from '../config/data-processor.js';
 import { getTaskCategories, filterDataByWeekRange, validateWeekSelection, getHourlyRate } from '../config/utils.js';
-import dashboardState from '../state-manager.js'; // Adjust path as needed
+
 
 // Import components
 import { LoadingState } from '../components/loading-state.js';
@@ -39,13 +39,6 @@ let lastUpdated = null;
 let autoRefreshEnabled = false;
 let autoRefreshIntervalId = null;
 let dataSourceConnected = false;
-
-// Display mode state (hours or cost)
-//let globalDisplayMode = 'hours';
-
-// View level state (category or task)
-//let globalLevelMode = 'category';
-
 
 // Display mode state (hours or cost)
 let globalDisplayMode = dashboardState ? dashboardState.getDisplayMode() : 'hours';
@@ -556,7 +549,7 @@ function setupAutoRefresh() {
   }
   
   // Only set up auto-refresh if we successfully loaded data
-  if (employeesData.length > 0 && dataSourceConnected) {
+  if (employeesData.length > 0 && window.dataSourceConnected) {
     console.log(`Setting up auto-refresh every ${SPREADSHEET_CONFIG.refreshInterval/1000} seconds`);
     
     // Set interval for auto-refresh
