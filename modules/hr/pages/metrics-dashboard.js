@@ -180,41 +180,24 @@ function globalDisplayToggle() {
     globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
     globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
     
-
-
-
     // Add click event listener
-globalDisplayToggle.addEventListener('click', () => {
-  // Toggle the display mode
-  globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
-  
-  // Update state manager
-  if (dashboardState) {
-    dashboardState.setDisplayMode(globalDisplayMode);
-  }
-  
-  // Update UI to match the new state
-  globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
-  globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
-  globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
-  
-  // Update charts with new display mode
-  updateAllEmployeeCharts();
-});
-    
-    // Add click event listener
-    //globalDisplayToggle.addEventListener('click', () => {
+    globalDisplayToggle.addEventListener('click', () => {
       // Toggle the display mode
-      //globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
+      globalDisplayMode = globalDisplayMode === 'hours' ? 'cost' : 'hours';
+      
+      // Update state manager
+      if (dashboardState) {
+        dashboardState.setDisplayMode(globalDisplayMode);
+      }
       
       // Update UI to match the new state
-      //globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
-      //globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
-      //globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
+      globalDisplayToggle.classList.toggle('active', globalDisplayMode === 'cost');
+      globalHoursLabel.classList.toggle('active', globalDisplayMode === 'hours');
+      globalCostLabel.classList.toggle('active', globalDisplayMode === 'cost');
       
       // Update charts with new display mode
-      //updateAllEmployeeCharts();
-    //});
+      updateAllEmployeeCharts();
+    });
   }
   
   // Category/Task toggle setup
@@ -229,38 +212,24 @@ globalDisplayToggle.addEventListener('click', () => {
     taskLabel.classList.toggle('active', globalLevelMode === 'task');
     
 
-
-    // Add click event listener
-categoryTaskToggle.addEventListener('click', () => {
-  // Toggle the level mode
-  globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
-  
-  // Update state manager
-  if (dashboardState) {
-    dashboardState.setLevelMode(globalLevelMode);
-  }
-  
-  // Update UI to match the new state
-  categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
-  categoryLabel.classList.toggle('active', globalLevelMode === 'category');
-  taskLabel.classList.toggle('active', globalLevelMode === 'task');
-  
-  // Update charts with new level mode
-  updateAllEmployeeCharts();
-    });
-    // Add click event listener
-    //categoryTaskToggle.addEventListener('click', () => {
+        // Add click event listener
+    categoryTaskToggle.addEventListener('click', () => {
       // Toggle the level mode
-      //globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
+      globalLevelMode = globalLevelMode === 'category' ? 'task' : 'category';
+      
+      // Update state manager
+      if (dashboardState) {
+        dashboardState.setLevelMode(globalLevelMode);
+      }
       
       // Update UI to match the new state
-      //categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
-      //categoryLabel.classList.toggle('active', globalLevelMode === 'category');
-      //taskLabel.classList.toggle('active', globalLevelMode === 'task');
+      categoryTaskToggle.classList.toggle('active', globalLevelMode === 'task');
+      categoryLabel.classList.toggle('active', globalLevelMode === 'category');
+      taskLabel.classList.toggle('active', globalLevelMode === 'task');
       
       // Update charts with new level mode
-     //updateAllEmployeeCharts();
-    //});
+      updateAllEmployeeCharts();
+    });
   }
 
   // Apply filter button
@@ -285,6 +254,11 @@ categoryTaskToggle.addEventListener('click', () => {
     // Update active filter variables
     activeStartWeek = startWeek;
     activeEndWeek = endWeek;
+    
+    // Update state manager
+    if (dashboardState) {
+      dashboardState.setDateRange(startWeek, endWeek);
+    }
     
     // Recalculate filtered data
     filteredEmployeesData = filterDataByWeekRange(employeesData, startWeek, endWeek);
@@ -406,6 +380,7 @@ categoryTaskToggle.addEventListener('click', () => {
     }
   });
 }
+
 
 /**
  * Handle file upload
