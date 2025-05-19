@@ -53,13 +53,21 @@
       <!-- File import option -->
       <div class="file-import mb-4" id="file-import-area">
         <p class="mb-2">
-          <span id="file-import-primary-text">Drag &amp; drop CSV file here or</span>
+          <span id="file-import-primary-text">Drag & drop CSV file here or</span>
           <span id="file-import-fallback-text" class="hidden">Google Sheets connection failed. You can manually upload data:</span>
         </p>
         <input type="file" id="csv-file-input" accept=".csv" class="hidden">
         <button id="file-select-button" class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 transition-colors">
           Select CSV File
         </button>
+        <!-- Add this direct download link -->
+        <div class="mt-2 text-sm">
+          <a href="https://docs.google.com/spreadsheets/d/1Y-koc05vPSjUJqZlo9N759GO69f2UucugFEbnuBJ4BM/export?format=csv"
+             target="_blank"
+             class="text-blue-600 hover:underline">
+            Direct download link (right-click and save)
+          </a>
+        </div>
       </div>
       
       <div class="flex flex-wrap items-center gap-4">

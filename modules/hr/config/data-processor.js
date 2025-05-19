@@ -9,6 +9,49 @@ import { TASK_CATEGORIES } from '../config/metrics-config.js';
 import { DataFetchError } from '../utils/errors.js';
 
 /**
+ * Save data to local storage cache
+ * @param {Array} data - The data to cache
+ */
+function saveDataToCache(data) {
+  try {
+    const cacheData = {
+      timestamp: Date.now(),
+      data: data
+    };
+    localStorage.setItem('hr_dashboard_data_cache', JSON.stringify(cacheData));
+    console.log('Data saved to local storage cache');
+  } catch (error) {
+    console.warn('Failed to save data to cache:', error);
+  }
+}
+
+/**
+ * Load data from local storage cache
+ * @returns {Array|null} - Cached data or null if no valid cache
+ */
+function loadDataFromCache() {
+  try {
+    const cachedData = localStorage.getItem('hr_dashboard_data_cache');
+    if (!cachedData) return null;
+    
+    const parsedCache = JSON.parse(cachedData);
+    const cacheAge = Date.now() - parsedCache.timestamp;
+    
+    // Cache valid for 24 hours
+    if (cacheAge > 24 * 60 * 60 * 1000) {
+      console.log('Cache expired, will fetch fresh data');
+      return null;
+    }
+    
+    console.log(`Using cached data from ${new Date(parsedCache.timestamp).toLocaleString()}`);
+    return parsedCache.data;
+  } catch (error) {
+    console.warn('Failed to load data from cache:', error);
+    return null;
+  }
+}
+
+/**
  * Fetch employee data from Google Sheets or uploaded CSV
  * @param {boolean} silent - If true, don't show loading indicators
  * @returns {Promise<Array>} - Array of employee time entries
@@ -71,6 +114,32 @@ export async function fetchEmployeeData(silent = false) {
           return { text: await response.text(), method: 'allorigins-proxy' };
         }
         throw new Error('AllOrigins proxy fetch failed');
+      },
+      
+      // Method 4: Using cors-anywhere proxy (add this new method)
+      async () => {
+        if (!SPREADSHEET_URL) {
+          throw new Error('Spreadsheet URL not configured');
+        }
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/' + SPREADSHEET_URL;
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+          return { text: await response.text(), method: 'cors-anywhere-proxy' };
+        }
+        throw new Error('CORS-Anywhere proxy fetch failed');
+      },
+      
+      // Method 5: Using jsonp.afeld.me proxy (add this new method)
+      async () => {
+        if (!SPREADSHEET_URL) {
+          throw new Error('Spreadsheet URL not configured');
+        }
+        const proxyUrl = 'https://jsonp.afeld.me/?url=' + encodeURIComponent(SPREADSHEET_URL);
+        const response = await fetch(proxyUrl);
+        if (response.ok) {
+          return { text: await response.text(), method: 'jsonp-proxy' };
+        }
+        throw new Error('JSONP proxy fetch failed');
       }
     ];
     
@@ -83,13 +152,37 @@ export async function fetchEmployeeData(silent = false) {
         console.log(`Successfully fetched data using ${fetchMethod} method`);
         break;
       } catch (error) {
-        console.warn(`Method ${fetchMethod} failed:`, error);
+        console.warn(`Method failed:`, error);
         continue;
       }
     }
     
-    // If all methods failed, show message to upload CSV
+    // If all methods failed, try to use cached data
     if (!csvText) {
+      const cachedData = loadDataFromCache();
+      
+      if (cachedData) {
+        // Update UI to show we're using cached data
+        updateDataSourceIndicator('connected', 'Using cached data (offline mode)');
+        
+        if (!silent && loadingMessage) {
+          loadingMessage.style.display = 'none';
+        }
+        
+        if (refreshIcon) {
+          refreshIcon.classList.remove('spin-animation');
+        }
+        
+        // Update last updated time from cache
+        const lastUpdatedElement = document.getElementById('last-updated-time');
+        if (lastUpdatedElement) {
+          lastUpdatedElement.textContent = 'Using cached data';
+        }
+        
+        return cachedData;
+      }
+      
+      // If no cache, show message to upload CSV
       updateDataSourceIndicator('disconnected', 'Could not connect to Google Sheets');
       
       if (!silent && loadingMessage) {
@@ -132,6 +225,9 @@ export async function fetchEmployeeData(silent = false) {
     if (parseResult.data.length === 0) {
       throw new DataFetchError('No data found in the spreadsheet');
     }
+    
+    // Save successful data to cache
+    saveDataToCache(parseResult.data);
     
     // Update data source indicator
     updateDataSourceIndicator('connected', `Connected to Google Sheets via ${fetchMethod} method`);
@@ -191,151 +287,4 @@ export async function fetchEmployeeData(silent = false) {
     
     throw error;
   }
-}
-
-/**
- * Calculate detailed task data by employee
- * @param {Array} employeeData - Filtered employee data
- * @param {Array} taskCategories - List of task categories
- * @returns {Object} - Detailed task data object
- */
-export function calculateDetailedTaskData(employeeData, taskCategories) {
-  const detailedTaskData = {};
-  
-  // Initialize the data structure
-  taskCategories.forEach(task => {
-    detailedTaskData[task] = {
-      totalHours: 0,
-      totalCost: 0,
-      byEmployee: {}
-    };
-  });
-  
-  // Populate with employee data
-  employeeData.forEach(row => {
-    const employeeName = row.User.toLowerCase().split('@')[0];
-    const hourlyRate = getHourlyRate(employeeName);
-    
-    taskCategories.forEach(task => {
-      const hours = row[task] || 0;
-      if (hours > 0) {
-        // Add to task total
-        detailedTaskData[task].totalHours += hours;
-        detailedTaskData[task].totalCost += hours * hourlyRate;
-        
-        // Track by employee
-        if (!detailedTaskData[task].byEmployee[employeeName]) {
-          detailedTaskData[task].byEmployee[employeeName] = {
-            hours: 0,
-            cost: 0
-          };
-        }
-        
-        detailedTaskData[task].byEmployee[employeeName].hours += hours;
-        detailedTaskData[task].byEmployee[employeeName].cost += hours * hourlyRate;
-      }
-    });
-  });
-  
-  return detailedTaskData;
-}
-
-/**
- * Calculate total hours per category
- * @param {Array} employeeData - Filtered employee data
- * @param {Array} taskCategories - List of task categories
- * @returns {Object} - Totals by category
- */
-export function calculateTotalsByCategory(employeeData, taskCategories) {
-  const totalsByCategory = {};
-  taskCategories.forEach(category => {
-    totalsByCategory[category] = employeeData.reduce((sum, row) => {
-      return sum + (row[category] || 0);
-    }, 0);
-  });
-  return totalsByCategory;
-}
-
-/**
- * Calculate totals by category type
- * @param {Object} totalsByCategory - Totals by category
- * @returns {Object} - Totals by category type
- */
-export function calculateTotalsByType(totalsByCategory) {
-  const totalsByType = {};
-  Object.entries(TASK_CATEGORIES).forEach(([type, categories]) => {
-    totalsByType[type] = categories.reduce((sum, category) => {
-      return sum + (totalsByCategory[category] || 0);
-    }, 0);
-  });
-  return totalsByType;
-}
-
-/**
- * Create detailed breakdown of hours by activity
- * @param {Object} totalsByCategory - Totals by category
- * @returns {Array} - Detailed breakdown array
- */
-export function createDetailedBreakdown(totalsByCategory) {
-  const detailedBreakdown = [];
-  Object.entries(totalsByCategory).forEach(([category, hours]) => {
-    if (hours > 0) {
-      // Find which type this category belongs to
-      let categoryType = '';
-      Object.entries(TASK_CATEGORIES).forEach(([type, categories]) => {
-        if (categories.includes(category)) {
-          categoryType = type;
-        }
-      });
-      
-      detailedBreakdown.push({
-        name: category,
-        hours: hours,
-        type: categoryType
-      });
-    }
-  });
-  // Sort by hours in descending order
-  return detailedBreakdown.sort((a, b) => b.hours - a.hours);
-}
-
-/**
- * Prepare pie chart data from totals by type
- * @param {Object} totalsByType - Totals by category type
- * @returns {Array} - Formatted pie chart data
- */
-export function preparePieData(totalsByType) {
-  const totalHours = Object.values(totalsByType).reduce((sum, hours) => sum + hours, 0);
-  return Object.entries(totalsByType)
-    .filter(([_, hours]) => hours > 0)
-    .map(([type, hours]) => ({
-      name: type,
-      value: hours,
-      percentage: ((hours / totalHours) * 100).toFixed(1)
-    }));
-}
-
-/**
- * Update data source indicator
- * @param {string} status - Connection status ('connected' or 'disconnected')
- * @param {string} message - Optional status message
- */
-export function updateDataSourceIndicator(status, message) {
-  const indicator = document.getElementById('data-source-indicator');
-  const dot = document.getElementById('source-dot');
-  const text = document.getElementById('source-text');
-  
-  if (status === 'connected') {
-    dot.classList.add('connected');
-    dot.classList.remove('disconnected');
-    window.dataSourceConnected = true;
-  } else {
-    dot.classList.add('disconnected');
-    dot.classList.remove('connected');
-    window.dataSourceConnected = false;
-  }
-  
-  text.textContent = message || (status === 'connected' ? 
-    'Connected to Google Sheets data source' : 
-    'Not connected to data source');
 }

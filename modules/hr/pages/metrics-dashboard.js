@@ -1062,6 +1062,57 @@ function displayNoDataMessage(employeeName) {
 }
 
 /**
+ * Handle data fetch errors with better user feedback
+ * @param {Error} error - The error that occurred
+ */
+function handleDataFetchError(error) {
+  console.error('Data fetch error:', error);
+  
+  // Update UI to show error
+  const loadingMessage = document.getElementById('loading-message');
+  if (loadingMessage) {
+    loadingMessage.innerHTML = `
+      <div class="error-state">
+        <div class="error-icon">⚠️</div>
+        <div class="error-message">
+          ${error.message}
+          <p class="mt-2 text-sm">
+            Please try the following:
+            <ul class="list-disc pl-5 mt-1 text-left">
+              <li>Use the file upload option</li>
+              <li>Try refreshing the page</li>
+              <li>Check your internet connection</li>
+              <li>Try a different browser</li>
+            </ul>
+          </p>
+        </div>
+        <button onclick="location.reload()" class="mt-4 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600">
+          Retry
+        </button>
+      </div>
+    `;
+    loadingMessage.style.display = 'block';
+  }
+  
+  // Update data source indicator
+  updateDataSourceIndicator('disconnected', 'Error connecting to data source');
+  
+  // Show fallback text in file import area
+  const primaryText = document.getElementById('file-import-primary-text');
+  const fallbackText = document.getElementById('file-import-fallback-text');
+  if (primaryText && fallbackText) {
+    primaryText.classList.add('hidden');
+    fallbackText.classList.remove('hidden');
+  }
+  
+  // Make file import area more prominent
+  const fileImportArea = document.getElementById('file-import-area');
+  if (fileImportArea) {
+    fileImportArea.classList.add('fallback-mode');
+  }
+}
+
+/**
  * Validate task categories for debugging
  */
 function validateTaskCategories() {
