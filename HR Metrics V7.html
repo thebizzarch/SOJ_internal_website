@@ -1,0 +1,3223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Work Time Analysis Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js for visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  
+  <!-- PAPA Parse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  
+  <style>
+    /* Same style as before */
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f9fafb;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    .dashboard-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f3f4f6;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dashboard-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #1f2937;
+    }
+    
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .stat-card {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+    
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-bottom: 4px;
+    }
+    
+    .stat-value.green {
+      color: #059669;
+    }
+    
+    .stat-value.purple {
+      color: #7c3aed;
+    }
+    
+    .stat-subtitle {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    
+    .cost-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: #059669;
+      margin-top: 8px;
+    }
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    
+    .chart-container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .chart-title {
+      text-align: center;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #374151;
+    }
+    
+    .full-width-chart {
+      grid-column: span 2;
+    }
+    
+    /* Tab styling */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+    
+    .tab.active {
+      border-bottom: 2px solid #2563eb;
+      color: #2563eb;
+      font-weight: 600;
+    }
+    
+    .tab:hover:not(.active) {
+      border-bottom: 2px solid #93c5fd;
+      color: #3b82f6;
+    }
+    
+    .employee-dashboard {
+      display: none;
+    }
+    
+    .employee-dashboard.active {
+      display: block;
+    }
+    
+    .employee-notice {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+      font-size: 18px;
+    }
+    
+    .week-selector {
+      background-color: white;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 24px;
+    }
+    
+    .loading-message {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      z-index: 1000;
+      font-weight: 600;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .last-updated {
+      text-align: right;
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: -20px;
+      margin-bottom: 10px;
+    }
+
+    /* File import */
+.file-import {
+  margin-top: 10px;
+  padding: 10px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.file-import.active {
+  border-color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.05);
+}
+
+.file-import.error {
+  border-color: #dc2626 !important;
+  background-color: rgba(220, 38, 38, 0.05) !important;
+}
+
+.file-import.error p {
+  color: #dc2626;
+}
+
+    /* Animation for refresh button */
+    .spin-animation {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    /* Chart toggle switch styling */
+    .toggle-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: -5px;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+
+    /* Global toggle styling */
+    .global-toggle-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 15px 0;
+      gap: 8px;
+      padding: 10px;
+      background-color: #f8fafc;
+      border-radius: 8px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    
+    .toggle-label {
+      font-size: 12px;
+      color: #6b7280;
+      cursor: pointer;
+    }
+    
+    .toggle-label.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    .global-toggle-label {
+      font-size: 14px;
+      color: #6b7280;
+      cursor: pointer;
+    }
+    
+    .global-toggle-label.active {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+      background-color: #e5e7eb;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .toggle-switch.active {
+      background-color: #3b82f6;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    
+    .toggle-switch.active .toggle-slider {
+      transform: translateX(26px);
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .stats-container,
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .full-width-chart {
+        grid-column: auto;
+      }
+      
+      .tabs {
+        flex-wrap: wrap;
+      }
+      
+      .tab {
+        flex: 1 0 auto;
+        text-align: center;
+        padding: 10px;
+      }
+    }
+
+    canvas {
+      max-width: 100%;
+    }
+
+    /* No data indicator styling */
+.no-data-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 20px;
+  background: rgba(249, 250, 251, 0.9);
+  border-radius: 8px;
+  border: 1px dashed #e5e7eb;
+}
+
+.chart-wrapper {
+  position: relative;
+  min-height: 300px;
+}
+
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <h1 class="dashboard-title">Employee Work Time Analysis</h1>
+    
+    <!-- Date/Week Range Selector -->
+    <div class="week-selector bg-white p-4 rounded-lg shadow mb-6">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-semibold">Date/Week Range Filter</h2>
+        
+        <!-- Refresh button -->
+        <button id="refresh-button" class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition-colors flex items-center">
+          <svg id="refresh-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+          </svg>
+          Refresh Data
+        </button>
+      </div>
+      
+      <div class="last-updated mb-3">
+  <div>Last updated: <span id="last-updated-time">Loading...</span></div>
+  <div style="font-size: 11px; margin-top: 2px;">
+    Data source: <span id="data-source-indicator">--</span>
+    <span id="auto-update-status" style="margin-left: 8px; color: #059669;">🔄 Auto-updating</span>
+  </div>
+</div>
+      
+      <!-- File import option -->
+      <div class="file-import mb-4" id="file-import-area">
+  <p class="mb-2">Drag &amp; drop CSV file here or</p>
+
+  <!-- This label triggers the hidden file input -->
+  <label
+    for="csv-file-input"
+    class="bg-blue-500 text-white py-1 px-3 rounded hover:bg-blue-600 transition-colors cursor-pointer inline-block"
+  >
+    Select CSV File
+  </label>
+
+  <!-- Use sr-only instead of hidden so it's still "clickable" -->
+  <input
+    type="file"
+    id="csv-file-input"
+    accept=".csv"
+    class="hidden"
+  >
+  
+  <!-- Debug button for testing -->
+  <button
+    id="test-csv-button"
+    class="bg-orange-500 text-white py-1 px-3 rounded hover:bg-orange-600 transition-colors cursor-pointer inline-block ml-2"
+    style="font-size: 12px;"
+  >
+    Load Test Data
+  </button>
+</div>
+
+      
+      <div class="flex flex-wrap items-center gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">From Week:</label>
+          <select id="start-week" class="border rounded p-2 w-full">
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">To Week:</label>
+          <select id="end-week" class="border rounded p-2 w-full">
+            <option value="all">All Time</option>
+          </select>
+        </div>
+        
+        <div class="flex items-end">
+          <button id="apply-filter" class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors">
+            Apply Filter
+          </button>
+        </div>
+        
+        <div class="flex items-end">
+          <button id="reset-filter" class="bg-gray-200 text-gray-800 py-2 px-4 rounded hover:bg-gray-300 transition-colors">
+            Reset
+          </button>
+        </div>
+      </div>
+      
+      <div id="active-filter" class="mt-3 text-sm hidden">
+        <span class="font-medium">Active Filter:</span>
+        <span id="filter-text" class="text-blue-600"></span>
+      </div>
+    </div>
+    
+    <!-- Global Toggles -->
+    <div class="global-toggle-container">
+      <span class="global-toggle-label active" id="global-hours-label">Display All Charts by Hours</span>
+      <div class="toggle-switch" id="global-display-toggle">
+        <div class="toggle-slider"></div>
+      </div>
+      <span class="global-toggle-label" id="global-cost-label">Display All Charts by Cost</span>
+    </div>
+    
+    <!-- Category/Task Toggle - NEW -->
+    <div class="global-toggle-container">
+      <span class="global-toggle-label active" id="global-category-label">View by Category</span>
+      <div class="toggle-switch" id="category-task-toggle">
+        <div class="toggle-slider"></div>
+      </div>
+      <span class="global-toggle-label" id="global-task-label">View by Task</span>
+    </div>
+    
+    <!-- Employee tabs -->
+    <div class="tabs">
+      <div class="tab active" data-employee="all">All Employees</div>
+      <div class="tab" data-employee="victoria">Victoria</div>
+      <div class="tab" data-employee="kyle">Kyle</div>
+      <div class="tab" data-employee="brooke">Brooke</div>
+      <div class="tab" data-employee="melanie">Melanie</div>
+      <div class="tab" data-employee="austin">Austin</div>
+    </div>
+    
+    <!-- All Employees Dashboard -->
+    <div id="all-dashboard" class="employee-dashboard active">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Team Hours</h2>
+          <p class="stat-value" id="all-total-hours">--</p>
+          <p class="stat-subtitle" id="all-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="all-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="all-most-time-activity">--</p>
+          <p class="stat-subtitle" id="all-most-time-hours">Loading...</p>
+          <p class="cost-text" id="all-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Team Weekly Average</h2>
+          <p class="stat-value purple" id="all-weekly-average">--</p>
+          <p class="stat-subtitle" id="all-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="all-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="all-pie-chart-title">Team Category Distribution (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="all-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="all-bar-chart-title">Team Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="all-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Employee Time Allocation Comparison -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="team-comparison-chart-title">Employee Time Allocation Comparison (Hours)</h2>
+          <div style="position: relative; height: 350px;">
+            <canvas id="team-comparisonChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Trends Chart if we have multiple weeks -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="all-time-line-chart-title">Team Weekly Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="all-timeLineChart-container">
+            <canvas id="all-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="all-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Victoria's Dashboard -->
+    <div id="victoria-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="victoria-total-hours">--</p>
+          <p class="stat-subtitle" id="victoria-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="victoria-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="victoria-most-time-activity">--</p>
+          <p class="stat-subtitle" id="victoria-most-time-hours">Loading...</p>
+          <p class="cost-text" id="victoria-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="victoria-weekly-average">--</p>
+          <p class="stat-subtitle" id="victoria-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="victoria-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="victoria-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="victoria-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="victoria-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="victoria-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="victoria-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="victoria-timeLineChart-container">
+            <canvas id="victoria-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="victoria-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Kyle's Dashboard -->
+    <div id="kyle-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="kyle-total-hours">--</p>
+          <p class="stat-subtitle" id="kyle-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="kyle-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="kyle-most-time-activity">--</p>
+          <p class="stat-subtitle" id="kyle-most-time-hours">Loading...</p>
+          <p class="cost-text" id="kyle-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="kyle-weekly-average">--</p>
+          <p class="stat-subtitle" id="kyle-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="kyle-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="kyle-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="kyle-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="kyle-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="kyle-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="kyle-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="kyle-timeLineChart-container">
+            <canvas id="kyle-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="kyle-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+   
+    </div>
+    
+    <!-- Brooke's Dashboard -->
+    <div id="brooke-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="brooke-total-hours">--</p>
+          <p class="stat-subtitle" id="brooke-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="brooke-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="brooke-most-time-activity">--</p>
+          <p class="stat-subtitle" id="brooke-most-time-hours">Loading...</p>
+          <p class="cost-text" id="brooke-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="brooke-weekly-average">--</p>
+          <p class="stat-subtitle" id="brooke-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="brooke-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="brooke-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="brooke-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="brooke-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="brooke-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="brooke-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="brooke-timeLineChart-container">
+            <canvas id="brooke-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="brooke-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Melanie's Dashboard -->
+    <div id="melanie-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="melanie-total-hours">--</p>
+          <p class="stat-subtitle" id="melanie-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="melanie-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="melanie-most-time-activity">--</p>
+          <p class="stat-subtitle" id="melanie-most-time-hours">Loading...</p>
+          <p class="cost-text" id="melanie-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="melanie-weekly-average">--</p>
+          <p class="stat-subtitle" id="melanie-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="melanie-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="melanie-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="melanie-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="melanie-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="melanie-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="melanie-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="melanie-timeLineChart-container">
+            <canvas id="melanie-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="melanie-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Austin's Dashboard -->
+    <div id="austin-dashboard" class="employee-dashboard">
+      <!-- Summary statistics -->
+      <div class="stats-container">
+        <div class="stat-card">
+          <h2 class="stat-title">Total Hours</h2>
+          <p class="stat-value" id="austin-total-hours">--</p>
+          <p class="stat-subtitle" id="austin-total-hours-subtitle">Loading...</p>
+          <p class="cost-text" id="austin-total-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Most Time Spent On</h2>
+          <p class="stat-value green" id="austin-most-time-activity">--</p>
+          <p class="stat-subtitle" id="austin-most-time-hours">Loading...</p>
+          <p class="cost-text" id="austin-most-time-cost">--</p>
+        </div>
+        
+        <div class="stat-card">
+          <h2 class="stat-title">Weekly Average</h2>
+          <p class="stat-value purple" id="austin-weekly-average">--</p>
+          <p class="stat-subtitle" id="austin-weekly-average-subtitle">Loading...</p>
+          <p class="cost-text" id="austin-weekly-average-cost">--</p>
+        </div>
+      </div>
+      
+      <!-- Main charts -->
+      <div class="charts-grid">
+        <!-- Distribution Pie Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="austin-pie-chart-title">Time Distribution by Category (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="austin-pieChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Breakdown Bar Chart -->
+        <div class="chart-container">
+          <h2 class="chart-title" id="austin-bar-chart-title">Category Breakdown (Hours)</h2>
+          <div style="position: relative; height: 300px;">
+            <canvas id="austin-barChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Weekly Time Trends -->
+        <div class="chart-container full-width-chart">
+          <h2 class="chart-title" id="austin-time-line-chart-title">Weekly Time Trends (Hours)</h2>
+          <div style="position: relative; height: 350px;" id="austin-timeLineChart-container">
+            <canvas id="austin-timeLineChart"></canvas>
+          </div>
+          <div class="employee-notice" id="austin-no-trend-data" style="display: none;">
+            Weekly trend data not available
+          </div>
+        </div>
+
+        
+      </div>
+    </div>
+    
+
+  </div>
+  
+  <!-- Loading message element -->
+  <div id="loading-message" class="loading-message">Loading dashboard data...</div>
+  
+  <script>
+  // ======= CONFIGURATION =======
+  const SPREADSHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTqE6c8k9tzjkfiiWEIa9v-OV3eGI9xOSwbJqWx1LzCkXPX1dSnwYMPjQZRMteZRVvjZ1BGfq9Dxaql/pub?gid=0&single=true&output=csv';
+  
+  const EMPLOYEE_HOURLY_RATES = {
+    victoria: 16.50,
+    kyle:     20.00,
+    brooke:   25.00,
+    melanie:  25.00,
+    austin:   35.00,
+    default:  16.50
+  };
+  
+  function getHourlyRate(employeeName) {
+    if (!employeeName) return EMPLOYEE_HOURLY_RATES.default;
+    const normalized = employeeName.toLowerCase().split('@')[0];
+    return EMPLOYEE_HOURLY_RATES[normalized] || EMPLOYEE_HOURLY_RATES.default;
+  }
+  
+  const CATEGORY_BASE_COLORS = {
+    'Social Media':       '#247c26',
+    'Business Development':'#0066cc',
+    'Newsletter':         '#ff8c00',
+    'Congress':           '#cc0000',
+    'Meetings and Admin': '#666666',
+    'Operations':         '#800080',
+    'Customer Support':   '#ff1493',
+    'Advertising':        '#32cd32',
+    'Miscellaneous':      '#9370db'
+  };
+  
+  const TASK_ORDER = [
+    'BD - Research','BD - Emailing','BD - Calls','BD - Internal Call',
+    'Congress - Research','Congress - Emailing','Congress - Calls','Congress - Internal Call',
+    'Social Management','Social Content - Research','Social Content - Scripting',
+    'Social Content - Recording','Social Content - Video Editing','Social Content - Graphic Design',
+    'Social - Internal Call','Influencer Outreach','Influencer - Internal Call',
+    'Newsletter - Writing/Editing','Newsletter - Operations','Newsletter - Internal Call',
+    'Misc. Content','Misc. Research','Internal Meetings','Admin',
+    'Operations','Customer Support','Ads'
+  ];
+
+  const categoriesByType = {
+  'Business Development': [
+    'BD - Research', 'BD - Emailing', 'BD - Calls', 'BD - Internal Call'
+  ],
+  'Congress': [
+    'Congress - Research', 'Congress - Emailing', 'Congress - Calls', 'Congress - Internal Call'
+  ],
+  'Social Media': [
+    'Social Management', 'Social Content - Research', 'Social Content - Scripting',
+    'Social Content - Recording', 'Social Content - Video Editing', 'Social Content - Graphic Design',
+    'Social - Internal Call', 'Influencer Outreach', 'Influencer - Internal Call'
+  ],
+  'Newsletter': [
+    'Newsletter - Writing/Editing', 'Newsletter - Operations', 'Newsletter - Internal Call'
+  ],
+  'Meetings and Admin': [
+    'Internal Meetings', 'Admin'
+  ],
+  'Operations': ['Operations'],
+  'Customer Support': ['Customer Support'],
+  'Advertising': ['Ads'],
+  'Miscellaneous': ['Misc. Content', 'Misc. Research']
+};
+  
+  let employeesData          = [];
+  let filteredEmployeesData  = [];
+  let activeStartWeek        = 'all';
+  let activeEndWeek          = 'all';
+  let lastUpdated            = null;
+  let lastDataSource         = null; // Track whether data came from 'google_sheets', 'upload', or 'test'
+  let globalDisplayMode      = 'hours';
+  let globalLevelMode        = 'category';
+  
+  const charts = {
+    all:      { pieChart: null, barChart: null, timeLineChart: null, comparisonChart: null },
+    victoria: { pieChart: null, barChart: null, timeLineChart: null },
+    kyle:     { pieChart: null, barChart: null, timeLineChart: null },
+    brooke:   { pieChart: null, barChart: null, timeLineChart: null },
+    melanie:  { pieChart: null, barChart: null, timeLineChart: null },
+    austin:   { pieChart: null, barChart: null, timeLineChart: null }
+  };
+  
+  function adjustColor(hex, percent) {
+    hex = hex.replace(/^#/, '');
+    let r = parseInt(hex.substr(0,2),16),
+        g = parseInt(hex.substr(2,2),16),
+        b = parseInt(hex.substr(4,2),16);
+    r = Math.min(255,Math.max(0,Math.round(r*(100+percent)/100)));
+    g = Math.min(255,Math.max(0,Math.round(g*(100+percent)/100)));
+    b = Math.min(255,Math.max(0,Math.round(b*(100+percent)/100)));
+    return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+  }
+  
+  const CATEGORY_COLOR_CACHE       = {};
+  const CATEGORY_BORDER_COLOR_CACHE= {};
+  const TASK_COLOR_CACHE           = {};
+  const TASK_BORDER_COLOR_CACHE    = {};
+  
+  function initializeColorCaches() {
+    Object.entries(CATEGORY_BASE_COLORS).forEach(([cat,base])=>{
+      CATEGORY_COLOR_CACHE[cat]       = base+'CC';
+      CATEGORY_BORDER_COLOR_CACHE[cat]= base;
+    });
+    Object.entries(categoriesByType).forEach(([cat,tasks])=>{
+      tasks.forEach((t,i)=>{
+        const mid = Math.floor(tasks.length/2),
+              pct = (i-mid)*15;
+        const adj = adjustColor(CATEGORY_BASE_COLORS[cat],pct);
+        TASK_COLOR_CACHE[t]        = adj+'CC';
+        TASK_BORDER_COLOR_CACHE[t] = adj;
+      });
+    });
+  }
+  
+  // ─── VALIDATE CSV STRUCTURE ───────────────────────────────────────────────
+  function validateCSVStructure(data) {
+    console.log('Validating CSV structure…');
+    if (!data || data.length===0) {
+      return { isValid:false, error:'No data rows found in the CSV file.' };
+    }
+    const firstRow = data[0];
+    if (!firstRow||typeof firstRow!=='object') {
+      return { isValid:false, error:'Invalid CSV format – unable to read headers.' };
+    }
+    const rawHeaders   = Object.keys(firstRow).map(h=>h.trim());
+    const lowerHeaders = rawHeaders.map(h=>h.toLowerCase());
+    console.log('CSV headers found (raw):',rawHeaders);
+    const required = ['Date','User','Week Range'];
+    const missing  = required.filter(r=>!lowerHeaders.includes(r.toLowerCase()));
+    if (missing.length>0) {
+      return {
+        isValid:false,
+        error:`Missing required column(s): ${missing.map(m=>`"${m}"`).join(', ')}. Found: ${rawHeaders.join(', ')}.`
+      };
+    }
+    const taskCols = rawHeaders.filter(h=>!required.includes(h));
+    if (taskCols.length===0) {
+      return {
+        isValid:false,
+        error:'No task/activity columns detected. Include at least one column besides Date, User, and Week Range.'
+      };
+    }
+    return { isValid:true, taskColumns:taskCols };
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+  
+  function processUploadedData(rawData) {
+    console.log('Processing uploaded data…');
+    const processed = rawData.map(row=>{
+      const out={};
+      Object.entries(row).forEach(([k,v])=>{
+        const key = k.trim();
+        if (['Date','User','Week Range'].includes(key)) {
+          out[key] = (typeof v==='string'?v.trim():String(v||''));
+        } else {
+          let num=0;
+          if (v==null||v==='') num=0;
+          else if (typeof v==='number') num=isNaN(v)?0:Math.max(0,v);
+          else if (typeof v==='string') {
+            const clean = v.trim().replace(/[^\d.-]/g,''),
+                  p = parseFloat(clean);
+            num = isNaN(p)?0:Math.max(0,p);
+          }
+          out[key]=num;
+        }
+      });
+      return out;
+    });
+    if (processed.length===0) throw new Error('No valid data rows were processed');
+    console.log('First processed row:',processed[0]);
+    return processed;
+  }
+  
+  function handleFileUploadError(msg,el) {
+    console.error('File upload error:',msg);
+    document.getElementById('refresh-icon')?.classList.remove('spin-animation');
+    el.innerHTML=`
+      <div style="color:#dc2626;font-weight:bold;margin-bottom:8px;">❌ Upload Error</div>
+      <div style="margin-bottom:12px;font-size:14px;line-height:1.4;">${msg}</div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.3;">
+        Please check your CSV format and try again.<br>
+        Required: Date, User, Week Range + at least one numeric task column.
+      </div>
+      <button onclick="el.style.display='none'"
+              style="margin-top:10px;padding:5px 10px;background:#dc2626;color:white;
+                     border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+        Close
+      </button>
+    `;
+    document.getElementById('file-import-area')?.classList.add('error');
+    document.getElementById('csv-file-input').value = '';
+    setTimeout(()=>{
+      if (el.style.display!=='none') {
+        el.style.display='none';
+        document.getElementById('file-import-area')?.classList.remove('error');
+      }
+    },15000);
+  }
+
+  // Data fetching function (fallback to Google Sheets if no upload)
+// Data fetching function - prioritize Google Sheets, allow upload override
+async function fetchEmployeeData(forceRefresh = false) {
+  // If forcing refresh, always fetch from Google Sheets
+  // If not forcing and we have uploaded data, use uploaded data
+  if (!forceRefresh && employeesData.length > 0 && lastDataSource === 'upload') {
+    console.log('Using uploaded data, skipping Google Sheets fetch');
+    return employeesData;
+  }
+  
+  try {
+    console.log('Fetching data from Google Sheets...');
+    const response = await fetch(SPREADSHEET_URL);
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    
+    const csvText = await response.text();
+    console.log('Google Sheets response received, parsing...');
+    
+    return new Promise((resolve, reject) => {
+      Papa.parse(csvText, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        transformHeader: h => {
+          const x = h.trim().toLowerCase();
+          if(x === 'date') return 'Date';
+          if(x === 'user') return 'User';
+          if(x === 'week range') return 'Week Range';
+          return h.trim();
+        },
+        complete: (results) => {
+          try {
+            console.log('Google Sheets parse complete, validating...');
+            if (results.errors && results.errors.length > 0) {
+              console.warn('Parse warnings:', results.errors);
+            }
+            
+            const validation = validateCSVStructure(results.data);
+            if (!validation.isValid) throw new Error(validation.error);
+            
+            const processed = processUploadedData(results.data);
+            lastUpdated = new Date().toLocaleString();
+            lastDataSource = 'google_sheets';
+            console.log('Google Sheets data processed successfully:', processed.length, 'rows');
+            resolve(processed);
+          } catch (error) {
+            console.error('Error processing Google Sheets data:', error);
+            reject(error);
+          }
+        },
+        error: (error) => {
+          console.error('Papa Parse error:', error);
+          reject(error);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error fetching from Google Sheets:', error.message);
+    throw error; // Re-throw to let caller handle
+  }
+}
+
+// Destroy all existing charts
+function destroyAllCharts() {
+  Object.values(charts).forEach(employeeCharts => {
+    Object.values(employeeCharts).forEach(chart => {
+      if (chart) {
+        chart.destroy();
+      }
+    });
+  });
+  
+  // Reset chart objects
+  Object.keys(charts).forEach(employee => {
+    Object.keys(charts[employee]).forEach(chartType => {
+      charts[employee][chartType] = null;
+    });
+  });
+}
+
+// Get employee data with filtering
+function getEmployeeData(employeeName) {
+  let data = filteredEmployeesData;
+  
+  if (employeeName !== 'all') {
+    data = data.filter(row => {
+      const user = row.User.toLowerCase().split('@')[0];
+      return user === employeeName.toLowerCase();
+    });
+  }
+  
+  return data;
+}
+
+// Get all unique employees from the full dataset
+function getAllEmployees() {
+  const allUsers = [...new Set(employeesData.map(row => row.User.toLowerCase().split('@')[0]))];
+  // Filter to only include known employees
+  const knownEmployees = ['victoria', 'kyle', 'brooke', 'melanie', 'austin'];
+  return knownEmployees.filter(emp => allUsers.includes(emp));
+}
+
+// Update all dashboard elements for all employees
+function updateAllEmployeeCharts() {
+  const loadingEl = document.getElementById('loading-message');
+  loadingEl.style.display = 'block';
+  loadingEl.innerHTML = 'Updating dashboard charts...';
+  
+  try {
+    // Update each employee dashboard
+    ['all', 'victoria', 'kyle', 'brooke', 'melanie', 'austin'].forEach(employee => {
+      updateEmployeeDashboard(employee);
+    });
+    
+    // Update last updated time
+    document.getElementById('last-updated-time').textContent = 
+      lastUpdated || new Date().toLocaleString();
+    
+    loadingEl.style.display = 'none';
+  } catch (error) {
+    console.error('Error updating charts:', error);
+    loadingEl.innerHTML = `Error updating charts: ${error.message}`;
+    setTimeout(() => loadingEl.style.display = 'none', 5000);
+  }
+}
+
+// Update statistics display
+function updateEmployeeStats(employeeName, stats) {
+  const prefix = employeeName === 'all' ? 'all' : employeeName;
+  const isTeam = employeeName === 'all';
+  
+  // Total hours
+  document.getElementById(`${prefix}-total-hours`).textContent = 
+    stats.totalHours.toFixed(1);
+  document.getElementById(`${prefix}-total-hours-subtitle`).textContent = 
+    `across ${stats.weeksCount} week${stats.weeksCount !== 1 ? 's' : ''}`;
+  
+  // Calculate cost
+let totalCost = 0;
+if (isTeam) {
+  // For team view, calculate cost per employee
+  const activeEmployees = getAllEmployees();
+  ['victoria', 'kyle', 'brooke', 'melanie', 'austin'].forEach(emp => {
+    // Only calculate cost for employees that exist in the dataset
+    if (activeEmployees.includes(emp)) {
+      const empData = getEmployeeData(emp);
+      if (empData.length > 0) {
+        const empStats = calculateEmployeeStats(empData);
+        totalCost += empStats.totalHours * getHourlyRate(emp);
+      }
+    }
+  });
+} else {
+  totalCost = stats.totalHours * getHourlyRate(employeeName);
+}
+  
+  document.getElementById(`${prefix}-total-cost`).textContent = 
+    `$${totalCost.toFixed(2)} total cost`;
+  
+  // Most time activity
+  document.getElementById(`${prefix}-most-time-activity`).textContent = 
+    stats.mostTimeActivity[0];
+  document.getElementById(`${prefix}-most-time-hours`).textContent = 
+    `${stats.mostTimeActivity[1].toFixed(1)} hours`;
+  
+  const mostTimeCost = stats.mostTimeActivity[1] * 
+    (isTeam ? EMPLOYEE_HOURLY_RATES.default : getHourlyRate(employeeName));
+  document.getElementById(`${prefix}-most-time-cost`).textContent = 
+    `$${mostTimeCost.toFixed(2)} cost`;
+  
+  // Weekly average
+  document.getElementById(`${prefix}-weekly-average`).textContent = 
+    stats.weeklyAverage.toFixed(1);
+  document.getElementById(`${prefix}-weekly-average-subtitle`).textContent = 
+    'hours per week';
+  
+  const avgCost = stats.weeklyAverage * 
+    (isTeam ? EMPLOYEE_HOURLY_RATES.default : getHourlyRate(employeeName));
+  document.getElementById(`${prefix}-weekly-average-cost`).textContent = 
+    `$${avgCost.toFixed(2)} per week`;
+}
+
+// Update charts for employee
+function updateEmployeeCharts(employeeName, stats) {
+  // Destroy existing charts
+  Object.values(charts[employeeName]).forEach(chart => {
+    if (chart) chart.destroy();
+  });
+  
+  // Create new charts
+  createPieChart(employeeName, stats);
+  createBarChart(employeeName, stats);
+  createTimeLineChart(employeeName, stats);
+  
+  if (employeeName === 'all') {
+    createComparisonChart(stats);
+  }
+}
+
+// Create pie chart
+function createPieChart(employeeName, stats) {
+  const canvas = document.getElementById(`${employeeName}-pieChart`);
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const data = globalLevelMode === 'category' ? stats.categoryTotals : stats.taskTotals;
+  const colorCache = globalLevelMode === 'category' ? CATEGORY_COLOR_CACHE : TASK_COLOR_CACHE;
+  const borderColorCache = globalLevelMode === 'category' ? CATEGORY_BORDER_COLOR_CACHE : TASK_BORDER_COLOR_CACHE;
+  
+  const labels = Object.keys(data).filter(key => data[key] > 0);
+  const values = labels.map(label => {
+    return globalDisplayMode === 'hours' ? data[label] : 
+           data[label] * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+  });
+  
+  charts[employeeName].pieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map(label => colorCache[label] || '#999999CC'),
+        borderColor: labels.map(label => borderColorCache[label] || '#999999'),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { usePointStyle: true, padding: 15 }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label;
+              const value = context.parsed;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              
+              if (globalDisplayMode === 'hours') {
+                return `${label}: ${value.toFixed(1)} hrs (${percentage}%)`;
+              } else {
+                return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Create bar chart
+function createBarChart(employeeName, stats) {
+  const canvas = document.getElementById(`${employeeName}-barChart`);
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const data = globalLevelMode === 'category' ? stats.categoryTotals : stats.taskTotals;
+  const colorCache = globalLevelMode === 'category' ? CATEGORY_COLOR_CACHE : TASK_COLOR_CACHE;
+  const borderColorCache = globalLevelMode === 'category' ? CATEGORY_BORDER_COLOR_CACHE : TASK_BORDER_COLOR_CACHE;
+  
+  const sortedEntries = Object.entries(data)
+    .filter(([,value]) => value > 0)
+    .sort(([,a], [,b]) => b - a);
+  
+  const labels = sortedEntries.map(([label]) => label);
+  const values = sortedEntries.map(([label, value]) => {
+    return globalDisplayMode === 'hours' ? value : 
+           value * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+  });
+  
+  charts[employeeName].barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)',
+        data: values,
+        backgroundColor: labels.map(label => colorCache[label] || '#999999CC'),
+        borderColor: labels.map(label => borderColorCache[label] || '#999999'),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)'
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              return globalDisplayMode === 'hours' ? 
+                `${value.toFixed(1)} hours` : 
+                `$${value.toFixed(2)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Create time line chart - CORRECTED VERSION
+function createTimeLineChart(employeeName, stats) {
+  const canvas = document.getElementById(`${employeeName}-timeLineChart`);
+  const container = document.getElementById(`${employeeName}-timeLineChart-container`);
+  const noDataEl = document.getElementById(`${employeeName}-no-trend-data`);
+  
+  if (!canvas) {
+    console.warn(`Time line chart canvas not found for ${employeeName}`);
+    return;
+  }
+  
+  console.log(`Creating time line chart for ${employeeName}`);
+  
+  // Step 1: Get all available weeks from the entire dataset
+  const allAvailableWeeks = [...new Set(employeesData.map(row => row['Week Range']).filter(Boolean))];
+  
+  // Step 2: Sort them chronologically
+  const sortedWeeks = allAvailableWeeks.sort((a, b) => 
+    parseWeekRangeForSorting(a) - parseWeekRangeForSorting(b)
+  );
+  
+  // Step 3: Generate complete week range based on current filter - THIS WAS MISSING!
+  const completeWeekRange = generateAllWeeksInRange(activeStartWeek, activeEndWeek, sortedWeeks);
+  
+  console.log('DEBUG - Employee:', employeeName);
+  console.log('DEBUG - Complete week range:', completeWeekRange);
+  console.log('DEBUG - Stats weekly data:', Object.keys(stats.weeklyData || {}));
+  
+  // Check if we have enough weeks to show a trend
+  if (!completeWeekRange || completeWeekRange.length < 2) {
+    if (container) container.style.display = 'none';
+    if (noDataEl) noDataEl.style.display = 'block';
+    console.log(`Not enough weeks for time line chart: ${employeeName}`);
+    return;
+  }
+  
+  if (container) container.style.display = 'block';
+  if (noDataEl) noDataEl.style.display = 'none';
+  
+  const ctx = canvas.getContext('2d');
+  
+  // Get relevant data items based on mode
+  let dataItems = [];
+  if (globalLevelMode === 'category') {
+    // For category mode, use categories that have data
+    dataItems = Object.keys(stats.categoryTotals || {}).filter(cat => stats.categoryTotals[cat] > 0);
+    if (dataItems.length === 0) {
+      dataItems = Object.keys(CATEGORY_BASE_COLORS);
+    }
+  } else {
+    // For task mode, use tasks that have data
+    dataItems = Object.keys(stats.taskTotals || {}).filter(task => stats.taskTotals[task] > 0);
+  }
+  
+  // Create datasets
+  const datasets = dataItems.map(item => {
+    const data = completeWeekRange.map(week => {
+      if (globalLevelMode === 'category') {
+        // Category mode - use existing weekly data
+        if (stats.weeklyData && stats.weeklyData[week] && stats.weeklyData[week][item]) {
+          const value = stats.weeklyData[week][item];
+          return globalDisplayMode === 'hours' ? value : 
+                 value * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+        }
+      } else {
+        // Task mode - use task-specific weekly data
+        if (stats.weeklyTaskData && stats.weeklyTaskData[week] && stats.weeklyTaskData[week][item]) {
+          const value = stats.weeklyTaskData[week][item];
+          return globalDisplayMode === 'hours' ? value : 
+                 value * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+        }
+      }
+      return 0; // No data for this week
+    });
+    
+    const colorCache = globalLevelMode === 'category' ? CATEGORY_COLOR_CACHE : TASK_COLOR_CACHE;
+    const borderColorCache = globalLevelMode === 'category' ? CATEGORY_BORDER_COLOR_CACHE : TASK_BORDER_COLOR_CACHE;
+    
+    return {
+      label: item,
+      data: data,
+      borderColor: borderColorCache[item] || '#999999',
+      backgroundColor: colorCache[item] || '#999999CC',
+      tension: 0.1,
+      fill: false,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+      spanGaps: true
+    };
+  });
+  
+  // Filter out datasets with no data
+  const datasetsWithData = datasets.filter(ds => ds.data.some(val => val > 0));
+  
+  if (datasetsWithData.length === 0) {
+    if (container) container.style.display = 'none';
+    if (noDataEl) noDataEl.style.display = 'block';
+    console.log(`No data to display in time line chart for ${employeeName}`);
+    return;
+  }
+  
+  // Create the chart
+  charts[employeeName].timeLineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: completeWeekRange,
+      datasets: datasetsWithData
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Week Range'
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: { size: 10 },
+            autoSkip: false
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { 
+            font: { size: 11 },
+            boxWidth: 12
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              if (value === 0) {
+                return `${context.dataset.label}: No data submitted`;
+              }
+              return globalDisplayMode === 'hours' ? 
+                `${context.dataset.label}: ${value.toFixed(1)} hours` : 
+                `${context.dataset.label}: $${value.toFixed(2)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Time line chart created successfully for ${employeeName}`);
+}
+
+// Create comparison chart (for "all" employee view)
+function createComparisonChart(stats) {
+  const canvas = document.getElementById('team-comparisonChart');
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  const employees = ['victoria', 'kyle', 'brooke', 'melanie', 'austin'];
+  const categories = Object.keys(stats.categoryTotals);
+  
+  const datasets = categories.map(category => {
+    const data = employees.map(emp => {
+      const empData = getEmployeeData(emp);
+      const empStats = calculateEmployeeStats(empData);
+      const value = empStats.categoryTotals[category] || 0;
+      return globalDisplayMode === 'hours' ? value : value * getHourlyRate(emp);
+    });
+    
+    return {
+      label: category,
+      data: data,
+      backgroundColor: CATEGORY_COLOR_CACHE[category] || '#999999CC',
+      borderColor: CATEGORY_BORDER_COLOR_CACHE[category] || '#999999',
+      borderWidth: 1
+    };
+  });
+  
+  charts.all.comparisonChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: employees.map(emp => emp.charAt(0).toUpperCase() + emp.slice(1)),
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: false
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top'
+        }
+      }
+    }
+  });
+}
+  
+  // ─── PROCESS FILE UPLOAD ───────────────────────────────────────────────────
+  function handleFileUpload(file) {
+    console.log('Starting file upload for',file.name);
+    const loading = document.getElementById('loading-message'),
+          refresh = document.getElementById('refresh-icon'),
+          area    = document.getElementById('file-import-area');
+    loading.style.display = 'block';
+    loading.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:8px;">📁 Processing: ${file.name}</div>
+      <div style="font-size:14px;">Reading & parsing CSV…</div>
+    `;
+    refresh?.classList.add('spin-animation');
+    area?.classList.remove('error');
+  
+    Papa.parse(file,{
+      header:true,dynamicTyping:true,skipEmptyLines:true,
+      transformHeader: h=>{
+        const x=h.trim().toLowerCase();
+        if(x==='date')       return 'Date';
+        if(x==='user')       return 'User';
+        if(x==='week range') return 'Week Range';
+        return h.trim();
+      },
+      transform: v=>(typeof v==='string'?v.trim():v),
+      complete(r){
+        try {
+          if(r.errors?.length){
+            const crit=r.errors.filter(e=>['Delimiter','Quotes','FieldMismatch'].includes(e.type));
+            if(crit.length) throw new Error(`Critical parsing errors: ${crit.map(e=>e.message).join('; ')}`);
+          }
+          const val = validateCSVStructure(r.data);
+          if(!val.isValid) throw new Error(val.error);
+          const proc = processUploadedData(r.data);
+          console.log('Processed sample:',proc.slice(0,2));
+          employeesData          = proc;
+          lastDataSource         = 'upload';
+          filteredEmployeesData  = [...employeesData];
+          updateWeekRangeOptions(proc);
+          destroyAllCharts();
+          updateAllEmployeeCharts();
+          loading.innerHTML=`
+            <div style="color:#059669;font-weight:bold;">✅ Upload Successful!</div>
+            <div style="font-size:14px;">Loaded ${proc.length} records from ${file.name}</div>
+            <button onclick="loading.style.display='none'"
+                    style="margin-top:10px;padding:5px 10px;background:#059669;color:white;
+                           border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+              Close
+            </button>
+          `;
+          setTimeout(()=>loading.style.display='none',5000);
+          document.getElementById('csv-file-input').value='';
+        } catch(err) {
+          console.error(err);
+          handleFileUploadError(err.message,loading);
+        } finally {
+          refresh?.classList.remove('spin-animation');
+        }
+      },
+      error(err){
+        console.error(err);
+        handleFileUploadError(`Failed to parse CSV: ${err.message}`,loading);
+        refresh?.classList.remove('spin-animation');
+      }
+    });
+  }
+  // ────────────────────────────────────────────────────────────────────────────
+  
+  // (The rest of your dashboard code—fetchEmployeeData, updateWeekRangeOptions,
+  //  destroyAllCharts, updateAllEmployeeCharts, initializeEmployeeCharts, etc.—
+  //  remains exactly as you had it.)
+  
+  // ═══════════════════════════════════════════════════════════════════════════
+// CORE DATA PROCESSING FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Update week range filter options with proper chronological sorting
+function updateWeekRangeOptions(data) {
+  console.log('Updating week range options...');
+  const weekRanges = [...new Set(data.map(row => row['Week Range']).filter(Boolean))];
+  
+  // Log raw week ranges for debugging
+  console.log('Raw week ranges found:', weekRanges);
+  
+  // Sort week ranges chronologically
+  const sortedWeekRanges = weekRanges.sort((a, b) => {
+    return parseWeekRangeForSorting(a) - parseWeekRangeForSorting(b);
+  });
+  
+  console.log('Sorted week ranges:', sortedWeekRanges);
+  
+  const startSelect = document.getElementById('start-week');
+  const endSelect = document.getElementById('end-week');
+  
+  if (!startSelect || !endSelect) {
+    console.error('Could not find week selector elements');
+    return;
+  }
+  
+  // Clear existing options except "All Time"
+  [startSelect, endSelect].forEach(select => {
+    while (select.children.length > 1) {
+      select.removeChild(select.lastChild);
+    }
+  });
+  
+  // Add week options in chronological order
+  sortedWeekRanges.forEach(week => {
+    [startSelect, endSelect].forEach(select => {
+      const option = document.createElement('option');
+      option.value = week;
+      option.textContent = week;
+      select.appendChild(option);
+    });
+  });
+  
+  console.log('Week range options updated successfully');
+}
+
+// Parse week range string to get a sortable date value
+// Format: "Mar 03 – Mar 09 (2025)"
+// Parse week range string to get a sortable date value
+function parseWeekRangeForSorting(weekRange) {
+  if (!weekRange || typeof weekRange !== 'string') {
+    return 0;
+  }
+  
+  try {
+    // Handle different formats
+    // Format 1: "Mar 03 – Mar 09 (2025)"
+    // Format 2: "2024-W01" (ISO week format)
+    
+    // Check for ISO week format first
+    if (weekRange.match(/^\d{4}-W\d{2}$/)) {
+      const [year, week] = weekRange.split('-W');
+      return parseInt(year) * 100 + parseInt(week);
+    }
+    
+    // Month abbreviation to number mapping
+    const monthMap = {
+      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+    };
+    
+    // Extract year from parentheses
+    const yearMatch = weekRange.match(/\((\d{4})\)/);
+    const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear();
+    
+    // Extract the start date (before the dash)
+    const dateParts = weekRange.split(/\s*[–-]\s*/);
+    if (dateParts.length < 2) {
+      console.warn('Could not parse week range:', weekRange);
+      return 0;
+    }
+    
+    // Parse the start date
+    const startDateStr = dateParts[0].trim();
+    const startMatch = startDateStr.match(/^(\w{3})\s+(\d{1,2})$/);
+    
+    if (!startMatch) {
+      console.warn('Could not parse start date:', startDateStr);
+      return 0;
+    }
+    
+    const monthAbbr = startMatch[1];
+    const day = parseInt(startMatch[2]);
+    const month = monthMap[monthAbbr];
+    
+    if (!month) {
+      console.warn('Unknown month abbreviation:', monthAbbr);
+      return 0;
+    }
+    
+    // Create a sortable numeric value: YYYYMMDD
+    const sortValue = year * 10000 + month * 100 + day;
+    
+    return sortValue;
+  } catch (error) {
+    console.error('Error parsing week range:', weekRange, error);
+    return 0;
+  }
+}
+
+// Generate all weeks between two week ranges
+function generateAllWeeksInRange(startWeek, endWeek, allAvailableWeeks) {
+  // If viewing all time, return all available weeks
+  if (startWeek === 'all' && endWeek === 'all') {
+    return allAvailableWeeks;
+  }
+  
+  // Sort all available weeks chronologically
+  const sortedWeeks = [...allAvailableWeeks].sort((a, b) => 
+    parseWeekRangeForSorting(a) - parseWeekRangeForSorting(b)
+  );
+  
+  // Find indices
+  let startIndex = 0;
+  let endIndex = sortedWeeks.length - 1;
+  
+  if (startWeek !== 'all') {
+    startIndex = sortedWeeks.indexOf(startWeek);
+    if (startIndex === -1) startIndex = 0;
+  }
+  
+  if (endWeek !== 'all') {
+    endIndex = sortedWeeks.indexOf(endWeek);
+    if (endIndex === -1) endIndex = sortedWeeks.length - 1;
+  }
+  
+  // Return the slice of weeks
+  return sortedWeeks.slice(startIndex, endIndex + 1);
+}
+
+// Destroy all existing charts
+function destroyAllCharts() {
+  console.log('Destroying all existing charts...');
+  let destroyedCount = 0;
+  
+  Object.keys(charts).forEach(employee => {
+    Object.keys(charts[employee]).forEach(chartType => {
+      if (charts[employee][chartType]) {
+        charts[employee][chartType].destroy();
+        charts[employee][chartType] = null;
+        destroyedCount++;
+      }
+    });
+  });
+  
+  console.log(`Destroyed ${destroyedCount} charts`);
+}
+
+// Get employee data with filtering
+function getEmployeeData(employeeName) {
+  let data = filteredEmployeesData;
+  
+  if (employeeName !== 'all') {
+    data = data.filter(row => {
+      if (!row.User) return false;
+      const user = row.User.toLowerCase().split('@')[0];
+      return user === employeeName.toLowerCase();
+    });
+  }
+  
+  console.log(`Found ${data.length} rows for employee: ${employeeName}`);
+  return data;
+}
+
+// Calculate statistics for an employee
+// Calculate statistics for an employee
+function calculateEmployeeStats(data) {
+  if (!data || data.length === 0) {
+    console.warn('No data provided to calculateEmployeeStats');
+    return {
+      totalHours: 0,
+      categoryTotals: {},
+      taskTotals: {},
+      weeklyData: {},
+      weeklyTaskData: {}, // Add this new property
+      mostTimeActivity: ['None', 0],
+      weeklyAverage: 0,
+      weeksCount: 0
+    };
+  }
+  
+  console.log('Calculating stats for', data.length, 'rows');
+  
+  const taskColumns = Object.keys(data[0] || {}).filter(key => 
+    !['Date', 'User', 'Week Range'].includes(key)
+  );
+  
+  console.log('Task columns found:', taskColumns);
+  
+  let totalHours = 0;
+  const categoryTotals = {};
+  const taskTotals = {};
+  const weeklyData = {};
+  const weeklyTaskData = {}; // New structure for task-level weekly data
+  
+  data.forEach((row, rowIndex) => {
+    const week = row['Week Range'];
+    if (!week) return;
+    
+    if (!weeklyData[week]) weeklyData[week] = {};
+    if (!weeklyTaskData[week]) weeklyTaskData[week] = {};
+    
+    taskColumns.forEach(task => {
+      const hours = parseFloat(row[task]) || 0;
+      if (hours > 0) {
+        totalHours += hours;
+        
+        // Find category for this task
+        const category = Object.keys(categoriesByType).find(cat => 
+          categoriesByType[cat].includes(task)
+        ) || 'Miscellaneous';
+        
+        categoryTotals[category] = (categoryTotals[category] || 0) + hours;
+        taskTotals[task] = (taskTotals[task] || 0) + hours;
+        
+        // Weekly tracking by category
+        weeklyData[week][category] = (weeklyData[week][category] || 0) + hours;
+        
+        // Weekly tracking by task
+        weeklyTaskData[week][task] = (weeklyTaskData[week][task] || 0) + hours;
+      }
+    });
+  });
+  
+  // Find most time spent activity
+  const mostTimeActivity = Object.entries(categoryTotals)
+    .sort(([,a], [,b]) => b - a)[0] || ['None', 0];
+  
+  // Calculate weekly average
+  const weeks = Object.keys(weeklyData);
+  const weeklyAverage = weeks.length > 0 ? totalHours / weeks.length : 0;
+  
+  console.log('Stats calculated:', {
+    totalHours,
+    categoriesCount: Object.keys(categoryTotals).length,
+    weeksCount: weeks.length,
+    mostTimeActivity: mostTimeActivity[0]
+  });
+  
+  return {
+    totalHours,
+    categoryTotals,
+    taskTotals,
+    weeklyData,
+    weeklyTaskData, // Include the new property
+    mostTimeActivity,
+    weeklyAverage,
+    weeksCount: weeks.length
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD UPDATE FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Update all dashboard elements for all employees
+function updateAllEmployeeCharts() {
+  console.log('Starting to update all employee charts...');
+  
+  const loadingEl = document.getElementById('loading-message');
+  if (loadingEl) {
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = 'Updating dashboard charts...';
+  }
+  
+  try {
+    // Update each employee dashboard
+    const employees = ['all', 'victoria', 'kyle', 'brooke', 'melanie', 'austin'];
+    employees.forEach((employee, index) => {
+      console.log(`Updating dashboard for ${employee} (${index + 1}/${employees.length})`);
+      updateEmployeeDashboard(employee);
+    });
+    
+    // Update last updated time
+    // Update last updated time and data source
+const lastUpdatedEl = document.getElementById('last-updated-time');
+const dataSourceEl = document.getElementById('data-source-indicator');
+const autoUpdateEl = document.getElementById('auto-update-status');
+
+if (lastUpdatedEl) {
+  lastUpdatedEl.textContent = lastUpdated || new Date().toLocaleString();
+}
+
+if (dataSourceEl) {
+  const sourceText = {
+    'google_sheets': '📊 Google Sheets',
+    'upload': '📁 Uploaded File',
+    'test': '🧪 Test Data'
+  };
+  dataSourceEl.textContent = sourceText[lastDataSource] || 'Unknown';
+}
+
+if (autoUpdateEl) {
+  // Show auto-update status only for Google Sheets data
+  if (lastDataSource === 'google_sheets') {
+    autoUpdateEl.style.display = 'inline';
+    autoUpdateEl.textContent = '🔄 Auto-updating';
+  } else {
+    autoUpdateEl.style.display = 'inline';
+    autoUpdateEl.textContent = '⏸️ Auto-update paused';
+    autoUpdateEl.style.color = '#6b7280';
+  }
+}
+    
+    console.log('All employee charts updated successfully');
+    if (loadingEl) loadingEl.style.display = 'none';
+    
+  } catch (error) {
+    console.error('Error updating charts:', error);
+    if (loadingEl) {
+      loadingEl.innerHTML = `Error updating charts: ${error.message}`;
+      setTimeout(() => loadingEl.style.display = 'none', 5000);
+    }
+  }
+}
+
+// Update individual employee dashboard
+function updateEmployeeDashboard(employeeName) {
+  console.log(`Updating dashboard for ${employeeName}`);
+  
+  const data = getEmployeeData(employeeName);
+  
+  // For the 'all' view, we should always have some data if any employee has data
+  if (employeeName === 'all') {
+    // Check if we have any data at all
+    if (filteredEmployeesData.length === 0) {
+      console.log('No data available for any employee in the selected range');
+      showNoDataMessage(employeeName, 'no-data-in-range');
+      return;
+    }
+  } else {
+    // Check if employee exists in the full dataset
+    const allEmployees = getAllEmployees();
+    const isKnownEmployee = allEmployees.includes(employeeName);
+    
+    if (!isKnownEmployee) {
+      console.log(`${employeeName} has no data in the entire dataset`);
+      showNoDataMessage(employeeName, 'no-data-ever');
+      return;
+    }
+    
+    if (data.length === 0) {
+      console.log(`${employeeName} has no data in the selected date range`);
+      showNoDataMessage(employeeName, 'no-data-in-range');
+      
+      // Still update stats with zeros
+      const emptyStats = {
+        totalHours: 0,
+        categoryTotals: {},
+        taskTotals: {},
+        weeklyData: {},
+        weeklyTaskData: {},
+        mostTimeActivity: ['None', 0],
+        weeklyAverage: 0,
+        weeksCount: 0
+      };
+      
+      updateEmployeeStats(employeeName, emptyStats);
+      hideEmployeeCharts(employeeName);
+      return;
+    }
+  }
+  
+  // Normal flow - employee has data
+  showEmployeeCharts(employeeName);
+  const stats = calculateEmployeeStats(data);
+  updateEmployeeStats(employeeName, stats);
+  updateEmployeeCharts(employeeName, stats);
+}
+
+// Show no data message for an employee
+function showNoDataMessage(employeeName, messageType) {
+  const messages = {
+    'no-data-ever': 'This employee has no recorded data in the system.',
+    'no-data-in-range': 'No data found for the selected date range. Try selecting a different date range or "All Time".'
+  };
+  
+  // Update stats to show zeros
+  const prefix = employeeName === 'all' ? 'all' : employeeName;
+  
+  document.getElementById(`${prefix}-total-hours`).textContent = '0.0';
+  document.getElementById(`${prefix}-total-hours-subtitle`).textContent = 'no data available';
+  document.getElementById(`${prefix}-total-cost`).textContent = '$0.00 total cost';
+  
+  document.getElementById(`${prefix}-most-time-activity`).textContent = 'N/A';
+  document.getElementById(`${prefix}-most-time-hours`).textContent = 'No activities recorded';
+  document.getElementById(`${prefix}-most-time-cost`).textContent = '$0.00 cost';
+  
+  document.getElementById(`${prefix}-weekly-average`).textContent = '0.0';
+  document.getElementById(`${prefix}-weekly-average-subtitle`).textContent = 'hours per week';
+  document.getElementById(`${prefix}-weekly-average-cost`).textContent = '$0.00 per week';
+  
+  // Hide charts and show message
+  hideEmployeeCharts(employeeName);
+  
+  // Add no data message to each chart container
+  ['pieChart', 'barChart', 'timeLineChart'].forEach(chartType => {
+    const canvas = document.getElementById(`${employeeName}-${chartType}`);
+    if (canvas && canvas.parentElement) {
+      const container = canvas.parentElement;
+      if (!container.querySelector('.no-data-indicator')) {
+        const indicator = document.createElement('div');
+        indicator.className = 'no-data-indicator';
+        indicator.innerHTML = `
+          <div style="margin-bottom: 8px;">📊</div>
+          <div>${messages[messageType]}</div>
+        `;
+        container.classList.add('chart-wrapper');
+        container.appendChild(indicator);
+      }
+    }
+  });
+}
+
+// Hide employee charts and show no data messages
+function hideEmployeeCharts(employeeName) {
+  ['pieChart', 'barChart', 'timeLineChart'].forEach(chartType => {
+    const canvas = document.getElementById(`${employeeName}-${chartType}`);
+    if (canvas) {
+      canvas.style.display = 'none';
+    }
+  });
+  
+  // Also hide the time line container if it exists
+  const timeLineContainer = document.getElementById(`${employeeName}-timeLineChart-container`);
+  if (timeLineContainer) {
+    timeLineContainer.style.display = 'none';
+  }
+}
+
+// Show employee charts and remove no data messages
+function showEmployeeCharts(employeeName) {
+  ['pieChart', 'barChart', 'timeLineChart'].forEach(chartType => {
+    const canvas = document.getElementById(`${employeeName}-${chartType}`);
+    if (canvas) {
+      canvas.style.display = 'block';
+      
+      // Remove any no data indicators
+      const container = canvas.parentElement;
+      const indicator = container.querySelector('.no-data-indicator');
+      if (indicator) {
+        indicator.remove();
+      }
+    }
+  });
+  
+  // Show the time line container if it exists
+  const timeLineContainer = document.getElementById(`${employeeName}-timeLineChart-container`);
+  if (timeLineContainer) {
+    timeLineContainer.style.display = 'block';
+  }
+}
+
+// Update statistics display
+function updateEmployeeStats(employeeName, stats) {
+  const prefix = employeeName === 'all' ? 'all' : employeeName;
+  const isTeam = employeeName === 'all';
+  
+  console.log(`Updating stats display for ${employeeName}`);
+  
+  // Total hours
+  const totalHoursEl = document.getElementById(`${prefix}-total-hours`);
+  const totalHoursSubEl = document.getElementById(`${prefix}-total-hours-subtitle`);
+  const totalCostEl = document.getElementById(`${prefix}-total-cost`);
+  
+  if (totalHoursEl) totalHoursEl.textContent = stats.totalHours.toFixed(1);
+  if (totalHoursSubEl) {
+    totalHoursSubEl.textContent = `across ${stats.weeksCount} week${stats.weeksCount !== 1 ? 's' : ''}`;
+  }
+  
+  // Calculate cost
+  let totalCost = 0;
+  if (isTeam) {
+    // For team view, calculate cost per employee
+    ['victoria', 'kyle', 'brooke', 'melanie', 'austin'].forEach(emp => {
+      const empData = getEmployeeData(emp);
+      if (empData.length > 0) {
+        const empStats = calculateEmployeeStats(empData);
+        totalCost += empStats.totalHours * getHourlyRate(emp);
+      }
+    });
+  } else {
+    totalCost = stats.totalHours * getHourlyRate(employeeName);
+  }
+  
+  if (totalCostEl) totalCostEl.textContent = `$${totalCost.toFixed(2)} total cost`;
+  
+  // Most time activity
+  const mostTimeActivityEl = document.getElementById(`${prefix}-most-time-activity`);
+  const mostTimeHoursEl = document.getElementById(`${prefix}-most-time-hours`);
+  const mostTimeCostEl = document.getElementById(`${prefix}-most-time-cost`);
+  
+  if (mostTimeActivityEl) mostTimeActivityEl.textContent = stats.mostTimeActivity[0];
+  if (mostTimeHoursEl) mostTimeHoursEl.textContent = `${stats.mostTimeActivity[1].toFixed(1)} hours`;
+  
+  const mostTimeCost = stats.mostTimeActivity[1] * 
+    (isTeam ? EMPLOYEE_HOURLY_RATES.default : getHourlyRate(employeeName));
+  if (mostTimeCostEl) mostTimeCostEl.textContent = `$${mostTimeCost.toFixed(2)} cost`;
+  
+  // Weekly average
+  const weeklyAvgEl = document.getElementById(`${prefix}-weekly-average`);
+  const weeklyAvgSubEl = document.getElementById(`${prefix}-weekly-average-subtitle`);
+  const weeklyAvgCostEl = document.getElementById(`${prefix}-weekly-average-cost`);
+  
+  if (weeklyAvgEl) weeklyAvgEl.textContent = stats.weeklyAverage.toFixed(1);
+  if (weeklyAvgSubEl) weeklyAvgSubEl.textContent = 'hours per week';
+  
+  const avgCost = stats.weeklyAverage * 
+    (isTeam ? EMPLOYEE_HOURLY_RATES.default : getHourlyRate(employeeName));
+  if (weeklyAvgCostEl) weeklyAvgCostEl.textContent = `$${avgCost.toFixed(2)} per week`;
+}
+
+// Update charts for employee
+function updateEmployeeCharts(employeeName, stats) {
+  console.log(`Creating charts for ${employeeName}`);
+  
+  // Destroy existing charts for this employee
+  Object.keys(charts[employeeName]).forEach(chartType => {
+    if (charts[employeeName][chartType]) {
+      charts[employeeName][chartType].destroy();
+      charts[employeeName][chartType] = null;
+    }
+  });
+  
+  // Create new charts
+  createPieChart(employeeName, stats);
+  createBarChart(employeeName, stats);
+  createTimeLineChart(employeeName, stats);
+  
+  if (employeeName === 'all') {
+    createComparisonChart(stats);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHART CREATION FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Create pie chart
+function createPieChart(employeeName, stats) {
+  const canvas = document.getElementById(`${employeeName}-pieChart`);
+  if (!canvas) {
+    console.warn(`Pie chart canvas not found for ${employeeName}`);
+    return;
+  }
+  
+  console.log(`Creating pie chart for ${employeeName}`);
+  
+  const ctx = canvas.getContext('2d');
+  const data = globalLevelMode === 'category' ? stats.categoryTotals : stats.taskTotals;
+  const colorCache = globalLevelMode === 'category' ? CATEGORY_COLOR_CACHE : TASK_COLOR_CACHE;
+  const borderColorCache = globalLevelMode === 'category' ? CATEGORY_BORDER_COLOR_CACHE : TASK_BORDER_COLOR_CACHE;
+  
+  const labels = Object.keys(data).filter(key => data[key] > 0);
+  const values = labels.map(label => {
+    const hourValue = data[label];
+    return globalDisplayMode === 'hours' ? hourValue : 
+           hourValue * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+  });
+  
+  if (labels.length === 0) {
+    console.warn(`No data to display in pie chart for ${employeeName}`);
+    return;
+  }
+  
+  charts[employeeName].pieChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map(label => colorCache[label] || '#999999CC'),
+        borderColor: labels.map(label => borderColorCache[label] || '#999999'),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { 
+            usePointStyle: true, 
+            padding: 15,
+            font: { size: 11 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label;
+              const value = context.parsed;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              
+              if (globalDisplayMode === 'hours') {
+                return `${label}: ${value.toFixed(1)} hrs (${percentage}%)`;
+              } else {
+                return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Pie chart created successfully for ${employeeName}`);
+}
+
+// Create bar chart
+function createBarChart(employeeName, stats) {
+  const canvas = document.getElementById(`${employeeName}-barChart`);
+  if (!canvas) {
+    console.warn(`Bar chart canvas not found for ${employeeName}`);
+    return;
+  }
+  
+  console.log(`Creating bar chart for ${employeeName}`);
+  
+  const ctx = canvas.getContext('2d');
+  const data = globalLevelMode === 'category' ? stats.categoryTotals : stats.taskTotals;
+  const colorCache = globalLevelMode === 'category' ? CATEGORY_COLOR_CACHE : TASK_COLOR_CACHE;
+  const borderColorCache = globalLevelMode === 'category' ? CATEGORY_BORDER_COLOR_CACHE : TASK_BORDER_COLOR_CACHE;
+  
+  const sortedEntries = Object.entries(data)
+    .filter(([,value]) => value > 0)
+    .sort(([,a], [,b]) => b - a);
+  
+  const labels = sortedEntries.map(([label]) => label);
+  const values = sortedEntries.map(([label, value]) => {
+    return globalDisplayMode === 'hours' ? value : 
+           value * getHourlyRate(employeeName === 'all' ? 'default' : employeeName);
+  });
+  
+  if (labels.length === 0) {
+    console.warn(`No data to display in bar chart for ${employeeName}`);
+    return;
+  }
+  
+  charts[employeeName].barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)',
+        data: values,
+        backgroundColor: labels.map(label => colorCache[label] || '#999999CC'),
+        borderColor: labels.map(label => borderColorCache[label] || '#999999'),
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)'
+          }
+        },
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            font: { size: 10 }
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.parsed.y;
+              return globalDisplayMode === 'hours' ? 
+                `${value.toFixed(1)} hours` : 
+                `$${value.toFixed(2)}`;
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  console.log(`Bar chart created successfully for ${employeeName}`);
+}
+
+// Create comparison chart (for "all" employee view)
+function createComparisonChart(stats) {
+  const canvas = document.getElementById('team-comparisonChart');
+  if (!canvas) {
+    console.warn('Team comparison chart canvas not found');
+    return;
+  }
+  
+  console.log('Creating team comparison chart');
+  
+  const ctx = canvas.getContext('2d');
+  
+  // Always show all employees, even if they have no data
+const allPossibleEmployees = ['victoria', 'kyle', 'brooke', 'melanie', 'austin'];
+const activeEmployees = getAllEmployees();
+const employees = allPossibleEmployees; // Show all employees in chart
+const categories = Object.keys(stats.categoryTotals).filter(cat => stats.categoryTotals[cat] > 0);
+
+if (categories.length === 0) {
+  console.warn('No categories with data for comparison chart');
+  return;
+}
+
+const datasets = categories.map(category => {
+  const data = employees.map(emp => {
+    // Check if this employee exists in the dataset
+    if (!activeEmployees.includes(emp)) {
+      return 0; // Employee not in dataset at all
+    }
+    
+    const empData = getEmployeeData(emp);
+    if (empData.length === 0) {
+      return 0; // Employee exists but has no data in selected range
+    }
+    
+    const empStats = calculateEmployeeStats(empData);
+    const value = empStats.categoryTotals[category] || 0;
+    return globalDisplayMode === 'hours' ? value : value * getHourlyRate(emp);
+  });
+    
+    return {
+      label: category,
+      data: data,
+      backgroundColor: CATEGORY_COLOR_CACHE[category] || '#999999CC',
+      borderColor: CATEGORY_BORDER_COLOR_CACHE[category] || '#999999',
+      borderWidth: 1
+    };
+  });
+  
+  charts.all.comparisonChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: employees.map(emp => emp.charAt(0).toUpperCase() + emp.slice(1)),
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: false
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: globalDisplayMode === 'hours' ? 'Hours' : 'Cost ($)'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { font: { size: 11 } }
+        }
+      }
+    }
+  });
+  
+  console.log('Team comparison chart created successfully');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FILTER AND UI FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Apply date range filter
+function applyDateFilter() {
+  console.log(`Applying date filter: ${activeStartWeek} to ${activeEndWeek}`);
+  
+  if (activeStartWeek === 'all' && activeEndWeek === 'all') {
+    filteredEmployeesData = [...employeesData];
+    console.log('Filter cleared, showing all data');
+    return;
+  }
+  
+  // Get all unique weeks and sort them chronologically
+  const allWeeks = [...new Set(employeesData.map(row => row['Week Range']).filter(Boolean))];
+  const sortedWeeks = allWeeks.sort((a, b) => parseWeekRangeForSorting(a) - parseWeekRangeForSorting(b));
+  
+  let startIndex = 0;
+  let endIndex = sortedWeeks.length - 1;
+  
+  if (activeStartWeek !== 'all') {
+    startIndex = sortedWeeks.indexOf(activeStartWeek);
+    if (startIndex === -1) {
+      console.warn('Start week not found:', activeStartWeek);
+      startIndex = 0;
+    }
+  }
+  
+  if (activeEndWeek !== 'all') {
+    endIndex = sortedWeeks.indexOf(activeEndWeek);
+    if (endIndex === -1) {
+      console.warn('End week not found:', activeEndWeek);
+      endIndex = sortedWeeks.length - 1;
+    }
+  }
+  
+  // Ensure start is before end
+  if (startIndex > endIndex) {
+    console.warn('Start week is after end week, swapping');
+    [startIndex, endIndex] = [endIndex, startIndex];
+  }
+  
+  const selectedWeeks = sortedWeeks.slice(startIndex, endIndex + 1);
+  console.log('Selected weeks:', selectedWeeks);
+  
+  filteredEmployeesData = employeesData.filter(row => 
+    selectedWeeks.includes(row['Week Range'])
+  );
+  
+  console.log(`Filter applied: ${filteredEmployeesData.length} rows from ${selectedWeeks.length} weeks`);
+}
+
+// Update filter display
+function updateFilterDisplay() {
+  const activeFilter = document.getElementById('active-filter');
+  const filterText = document.getElementById('filter-text');
+  
+  if (!activeFilter || !filterText) return;
+  
+  if (activeStartWeek === 'all' && activeEndWeek === 'all') {
+    activeFilter.classList.add('hidden');
+  } else {
+    let text = '';
+    if (activeStartWeek === activeEndWeek && activeStartWeek !== 'all') {
+      text = `Week: ${activeStartWeek}`;
+    } else {
+      const start = activeStartWeek === 'all' ? 'Beginning' : activeStartWeek;
+      const end = activeEndWeek === 'all' ? 'Latest' : activeEndWeek;
+      text = `${start} to ${end}`;
+    }
+    filterText.textContent = text;
+    activeFilter.classList.remove('hidden');
+  }
+}
+
+// Update all chart titles based on current mode
+function updateAllChartTitles() {
+  const modeText = globalDisplayMode === 'hours' ? 'Hours' : 'Cost';
+  const levelText = globalLevelMode === 'category' ? 'Category' : 'Task';
+  
+  console.log(`Updating chart titles: ${modeText}, ${levelText}`);
+  
+  // Update titles for each employee
+  const employees = ['all', 'victoria', 'kyle', 'brooke', 'melanie', 'austin'];
+  employees.forEach(emp => {
+    const pieTitle = document.getElementById(`${emp}-pie-chart-title`);
+    const barTitle = document.getElementById(`${emp}-bar-chart-title`);
+    const lineTitle = document.getElementById(`${emp}-time-line-chart-title`);
+    
+    const prefix = emp === 'all' ? 'Team' : emp.charAt(0).toUpperCase() + emp.slice(1);
+    
+    if (pieTitle) {
+      pieTitle.textContent = `${prefix} ${levelText} Distribution (${modeText})`;
+    }
+    if (barTitle) {
+      barTitle.textContent = `${prefix} ${levelText} Breakdown (${modeText})`;
+    }
+    if (lineTitle) {
+      lineTitle.textContent = `${prefix} Weekly Trends (${modeText})`;
+    }
+  });
+  
+  // Update comparison chart title
+  const compTitle = document.getElementById('team-comparison-chart-title');
+  if (compTitle) {
+    compTitle.textContent = `Employee Time Allocation Comparison (${modeText})`;
+  }
+}
+
+// Initialize filter functionality
+function initializeFilter() {
+  console.log('Initializing filter functionality...');
+  
+  // Apply filter button
+  const applyBtn = document.getElementById('apply-filter');
+  if (applyBtn) {
+    applyBtn.addEventListener('click', () => {
+      console.log('Apply filter clicked');
+      const startWeek = document.getElementById('start-week').value;
+      const endWeek = document.getElementById('end-week').value;
+      
+      activeStartWeek = startWeek;
+      activeEndWeek = endWeek;
+      
+      applyDateFilter();
+      updateAllEmployeeCharts();
+      updateFilterDisplay();
+    });
+  }
+  
+  // Reset filter button
+  const resetBtn = document.getElementById('reset-filter');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      console.log('Reset filter clicked');
+      document.getElementById('start-week').value = 'all';
+      document.getElementById('end-week').value = 'all';
+      activeStartWeek = 'all';
+      activeEndWeek = 'all';
+      
+      filteredEmployeesData = [...employeesData];
+      updateAllEmployeeCharts();
+      updateFilterDisplay();
+    });
+  }
+  
+  // Refresh button
+  // Refresh button
+
+// Refresh button
+const refreshBtn = document.getElementById('refresh-button');
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', async () => {
+    console.log('Refresh button clicked - fetching fresh data from Google Sheets');
+    const refreshIcon = document.getElementById('refresh-icon');
+    const loadingEl = document.getElementById('loading-message');
+    
+    // Save current filter state
+    const currentStartWeek = activeStartWeek;
+    const currentEndWeek = activeEndWeek;
+    console.log('Preserving filter state:', currentStartWeek, 'to', currentEndWeek);
+    
+    if (refreshIcon) refreshIcon.classList.add('spin-animation');
+    if (loadingEl) {
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = 'Refreshing data from Google Sheets...';
+    }
+    
+    try {
+      // Force refresh from Google Sheets (ignore any uploaded data)
+      const newData = await fetchEmployeeData(true);
+      
+      if (newData && newData.length > 0) {
+        console.log('Fresh data loaded from Google Sheets:', newData.length, 'rows');
+        employeesData = newData;
+        
+        // Update week range options first
+        updateWeekRangeOptions(employeesData);
+        
+        // Restore filter state
+        activeStartWeek = currentStartWeek;
+        activeEndWeek = currentEndWeek;
+        
+        // Check if the saved week ranges still exist in the new data
+        const availableWeeks = [...new Set(employeesData.map(row => row['Week Range']).filter(Boolean))];
+        
+        // Validate saved filters
+        if (activeStartWeek !== 'all' && !availableWeeks.includes(activeStartWeek)) {
+          console.warn('Previous start week no longer exists in data:', activeStartWeek);
+          activeStartWeek = 'all';
+        }
+        if (activeEndWeek !== 'all' && !availableWeeks.includes(activeEndWeek)) {
+          console.warn('Previous end week no longer exists in data:', activeEndWeek);
+          activeEndWeek = 'all';
+        }
+        
+        // Update dropdowns to match restored state
+        const startSelect = document.getElementById('start-week');
+        const endSelect = document.getElementById('end-week');
+        if (startSelect) startSelect.value = activeStartWeek;
+        if (endSelect) endSelect.value = activeEndWeek;
+        
+        // Apply the filter to the new data
+        if (activeStartWeek === 'all' && activeEndWeek === 'all') {
+          filteredEmployeesData = [...employeesData];
+        } else {
+          applyDateFilter();
+        }
+        
+        // Update display
+        updateFilterDisplay();
+        destroyAllCharts();
+        updateAllEmployeeCharts();
+        
+        if (loadingEl) {
+          loadingEl.innerHTML = `
+            <div style="color:#059669;font-weight:bold;">✅ Data Refreshed Successfully!</div>
+            <div style="font-size:14px;">Loaded ${newData.length} records from Google Sheets</div>
+            ${activeStartWeek !== 'all' || activeEndWeek !== 'all' ? 
+              '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Filter preserved and re-applied</div>' : ''}
+            <button onclick="this.parentElement.style.display='none'"
+                    style="margin-top:10px;padding:5px 10px;background:#059669;color:white;
+                           border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+              Close
+            </button>
+          `;
+          setTimeout(() => {
+            if (loadingEl) loadingEl.style.display = 'none';
+          }, 3000);
+        }
+      } else {
+        throw new Error('No data received from Google Sheets');
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      if (loadingEl) {
+        loadingEl.innerHTML = `
+          <div style="color:#dc2626;font-weight:bold;">❌ Refresh Failed</div>
+          <div style="font-size:14px;margin:8px 0;">${error.message}</div>
+          <div style="font-size:12px;color:#6b7280;">
+            Check your internet connection and Google Sheets permissions.
+          </div>
+          <button onclick="this.parentElement.style.display='none'"
+                  style="margin-top:10px;padding:5px 10px;background:#dc2626;color:white;
+                         border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+            Close
+          </button>
+        `;
+        setTimeout(() => {
+          if (loadingEl) loadingEl.style.display = 'none';
+        }, 10000);
+      }
+    } finally {
+      if (refreshIcon) refreshIcon.classList.remove('spin-animation');
+    }
+  });
+}
+  
+  // Tab switching
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      console.log('Tab clicked:', tab.dataset.employee);
+      
+      // Remove active class from all tabs and dashboards
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.employee-dashboard').forEach(d => {
+        d.classList.remove('active');
+        d.style.display = 'none';
+      });
+      
+      // Add active class to clicked tab
+      tab.classList.add('active');
+      
+      // Show corresponding dashboard
+      const employee = tab.dataset.employee;
+      const dashboard = document.getElementById(`${employee}-dashboard`);
+      if (dashboard) {
+        dashboard.classList.add('active');
+        dashboard.style.display = 'block';
+      }
+    });
+  });
+  
+  // Global display mode toggle (Hours/Cost)
+  const displayToggle = document.getElementById('global-display-toggle');
+  if (displayToggle) {
+    displayToggle.addEventListener('click', () => {
+      console.log('Display mode toggle clicked');
+      const toggle = document.getElementById('global-display-toggle');
+      const hoursLabel = document.getElementById('global-hours-label');
+      const costLabel = document.getElementById('global-cost-label');
+      
+      toggle.classList.toggle('active');
+      
+      if (toggle.classList.contains('active')) {
+        globalDisplayMode = 'cost';
+        hoursLabel.classList.remove('active');
+        costLabel.classList.add('active');
+        console.log('Switched to cost mode');
+      } else {
+        globalDisplayMode = 'hours';
+        hoursLabel.classList.add('active');
+        costLabel.classList.remove('active');
+        console.log('Switched to hours mode');
+      }
+      
+      updateAllChartTitles();
+      updateAllEmployeeCharts();
+    });
+  }
+  
+  // Category/Task toggle
+  const categoryTaskToggle = document.getElementById('category-task-toggle');
+  if (categoryTaskToggle) {
+    categoryTaskToggle.addEventListener('click', () => {
+      console.log('Category/Task toggle clicked');
+      const toggle = document.getElementById('category-task-toggle');
+      const categoryLabel = document.getElementById('global-category-label');
+      const taskLabel = document.getElementById('global-task-label');
+      
+      toggle.classList.toggle('active');
+      
+      if (toggle.classList.contains('active')) {
+        globalLevelMode = 'task';
+        categoryLabel.classList.remove('active');
+        taskLabel.classList.add('active');
+        console.log('Switched to task mode');
+      } else {
+        globalLevelMode = 'category';
+        categoryLabel.classList.add('active');
+        taskLabel.classList.remove('active');
+        console.log('Switched to category mode');
+      }
+      
+      updateAllChartTitles();
+      updateAllEmployeeCharts();
+    });
+  }
+  
+  console.log('Filter functionality initialized');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEST DATA GENERATOR
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Test CSV data generator
+function generateTestCSVData() {
+  console.log('Generating test CSV data...');
+  
+  const testData = [
+    {
+      'Date': '2024-01-01',
+      'User': 'victoria@email.com',
+      'Week Range': '2024-W01',
+      'BD - Research': 2.5,
+      'Social Management': 4.0,
+      'Newsletter - Writing/Editing': 1.5,
+      'Internal Meetings': 1.0,
+      'Social Content - Video Editing': 0,
+      'Operations': 0
+    },
+    {
+      'Date': '2024-01-02',
+      'User': 'kyle@email.com',
+      'Week Range': '2024-W01',
+      'BD - Calls': 3.0,
+      'Operations': 2.5,
+      'Customer Support': 2.0,
+      'Admin': 0.5,
+      'BD - Research': 0,
+      'Social Management': 0
+    },
+    {
+      'Date': '2024-01-03',
+      'User': 'brooke@email.com',
+      'Week Range': '2024-W01',
+      'Congress - Research': 3.5,
+      'Newsletter - Operations': 2.0,
+      'Internal Meetings': 1.0,
+      'Ads': 1.5,
+      'Operations': 0,
+      'BD - Research': 0
+    },
+    {
+      'Date': '2024-01-04',
+      'User': 'melanie@email.com',
+      'Week Range': '2024-W01',
+      'Social Content - Scripting': 3.0,
+      'Social Content - Recording': 2.5,
+      'Social Management': 1.5,
+      'Internal Meetings': 1.0,
+      'BD - Research': 0,
+      'Operations': 0
+    },
+    {
+      'Date': '2024-01-05',
+      'User': 'austin@email.com',
+      'Week Range': '2024-W01',
+      'Operations': 4.0,
+      'BD - Internal Call': 2.0,
+      'Internal Meetings': 1.5,
+      'Admin': 0.5,
+      'Social Management': 0,
+      'Customer Support': 0
+    },
+    {
+      'Date': '2024-01-08',
+      'User': 'victoria@email.com',
+      'Week Range': '2024-W02',
+      'Social Content - Video Editing': 3.5,
+      'Newsletter - Operations': 2.0,
+      'BD - Emailing': 2.5,
+      'Internal Meetings': 0.5,
+      'Operations': 0,
+      'Customer Support': 0
+    },
+    {
+      'Date': '2024-01-09',
+      'User': 'kyle@email.com',
+      'Week Range': '2024-W02',
+      'BD - Research': 2.0,
+      'Operations': 3.0,
+      'Customer Support': 1.5,
+      'BD - Calls': 1.5,
+      'Admin': 0,
+      'Social Management': 0
+    },
+    {
+      'Date': '2024-01-10',
+      'User': 'brooke@email.com',
+      'Week Range': '2024-W02',
+      'Congress - Emailing': 2.5,
+      'Newsletter - Writing/Editing': 3.0,
+      'Ads': 2.0,
+      'Internal Meetings': 0.5,
+      'Operations': 0,
+      'BD - Research': 0
+    }
+  ];
+  
+  console.log('Test data generated:', testData.length, 'rows');
+  return testData;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN INITIALIZATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Complete DOMContentLoaded initialization
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('=== Dashboard Initialization Started ===');
+  
+  // Initialize color caches and filters
+  console.log('Initializing color caches...');
+  initializeColorCaches();
+  
+  console.log('Initializing filters...');
+  initializeFilter();
+  
+  // Set up file upload event listeners
+  console.log('Setting up file upload event listeners...');
+  const fileInput = document.getElementById('csv-file-input');
+  const fileImportArea = document.getElementById('file-import-area');
+  const testButton = document.getElementById('test-csv-button');
+  
+  // File input change event
+  if (fileInput) {
+    fileInput.addEventListener('change', (e) => {
+      console.log('File input changed');
+      const file = e.target.files[0];
+      if (file) {
+        console.log('File selected:', file.name, file.type, file.size);
+        if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+          handleFileUpload(file);
+        } else {
+          alert('Please select a CSV file');
+        }
+      }
+    });
+    console.log('File input event listener attached');
+  }
+  
+  // Drag and drop events
+  if (fileImportArea) {
+    fileImportArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fileImportArea.classList.add('active');
+    });
+    
+    fileImportArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      fileImportArea.classList.remove('active');
+    });
+    
+    fileImportArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      fileImportArea.classList.remove('active');
+      
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const file = files[0];
+        console.log('File dropped:', file.name, file.type, file.size);
+        if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+          handleFileUpload(file);
+        } else {
+          alert('Please drop a CSV file');
+        }
+      }
+    });
+    console.log('Drag and drop event listeners attached');
+  }
+  
+  // Test data button
+  if (testButton) {
+    testButton.addEventListener('click', () => {
+  console.log('Test button clicked - loading test data');
+  const testData = generateTestCSVData();
+  employeesData = testData;
+  lastDataSource = 'test';
+  filteredEmployeesData = [...employeesData];
+  updateWeekRangeOptions(testData);
+  destroyAllCharts();
+  updateAllEmployeeCharts();
+  lastUpdated = new Date().toLocaleString();
+  console.log('Test data loaded successfully');
+});
+    console.log('Test button event listener attached');
+  }
+  
+  // Try to load initial data from Google Sheets
+  // Try to load initial data from Google Sheets
+console.log('Attempting to load initial data from Google Sheets...');
+const loadingEl = document.getElementById('loading-message');
+
+try {
+  if (loadingEl) {
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = 'Loading data from Google Sheets...';
+  }
+  
+  // Always try to fetch from Google Sheets on initial load
+  employeesData = await fetchEmployeeData(false);
+  
+  if (employeesData && employeesData.length > 0) {
+    console.log('Initial data loaded successfully from Google Sheets:', employeesData.length, 'rows');
+    filteredEmployeesData = [...employeesData];
+    updateWeekRangeOptions(employeesData);
+    updateAllEmployeeCharts();
+    lastUpdated = new Date().toLocaleString();
+    
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <div style="color:#059669;font-weight:bold;">✅ Data Loaded Successfully!</div>
+        <div style="font-size:14px;">Loaded ${employeesData.length} records from Google Sheets</div>
+        <button onclick="this.parentElement.style.display='none'"
+                style="margin-top:10px;padding:5px 10px;background:#059669;color:white;
+                       border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+          Close
+        </button>
+      `;
+      setTimeout(() => {
+        if (loadingEl) loadingEl.style.display = 'none';
+      }, 2000);
+    }
+  } else {
+    throw new Error('No data received from Google Sheets');
+  }
+} catch (error) {
+  console.error('Error loading initial data from Google Sheets:', error);
+  
+  if (loadingEl) {
+    loadingEl.innerHTML = `
+      <div style="color:#f59e0b;font-weight:bold;">⚠️ Could not load data from Google Sheets</div>
+      <div style="font-size:14px;margin:8px 0;">Error: ${error.message}</div>
+      <div style="font-size:12px;color:#6b7280;line-height:1.4;">
+        You can still use the dashboard by:<br>
+        • Uploading a CSV file<br>
+        • Clicking "Load Test Data" to try the demo<br>
+        • Clicking "Refresh Data" to try Google Sheets again
+      </div>
+      <button onclick="this.parentElement.style.display='none'"
+              style="margin-top:10px;padding:5px 10px;background:#f59e0b;color:white;
+                     border:none;border-radius:4px;cursor:pointer;font-size:12px;">
+        Close
+      </button>
+    `;
+    setTimeout(() => {
+      if (loadingEl) loadingEl.style.display = 'none';
+    }, 8000);
+  }
+} finally {
+  // Remove the old finally block content since we handle success/error above
+}
+// Start automatic periodic updates from Google Sheets
+  console.log('Starting automatic updates...');
+  startAutoUpdate();
+  
+  console.log('=== Dashboard Initialization Complete ===');  
+
+  console.log('=== Dashboard Initialization Complete ===');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTOMATIC PERIODIC UPDATES
+// ═══════════════════════════════════════════════════════════════════════════
+
+let autoUpdateInterval = null;
+const AUTO_UPDATE_INTERVAL_MINUTES = 30; // Update every 30 minutes
+
+// Start automatic updates
+function startAutoUpdate() {
+  if (autoUpdateInterval) {
+    clearInterval(autoUpdateInterval);
+  }
+  
+  console.log(`Starting auto-update every ${AUTO_UPDATE_INTERVAL_MINUTES} minutes`);
+
+  // Immediately log that auto-update has been scheduled
+console.log('Auto-update scheduled. Current data source:', lastDataSource);
+console.log('Next auto-update will occur at:', new Date(Date.now() + AUTO_UPDATE_INTERVAL_MINUTES * 60 * 1000).toLocaleString());
+  
+  autoUpdateInterval = setInterval(async () => {
+    // Only auto-update if we're currently showing Google Sheets data
+    if (lastDataSource === 'google_sheets') {
+      console.log('Auto-update: Fetching fresh data from Google Sheets...');
+      
+      try {
+        const newData = await fetchEmployeeData(true);
+        if (newData && newData.length > 0) {
+          // Only update if data has actually changed
+          const currentDataHash = JSON.stringify(employeesData);
+          const newDataHash = JSON.stringify(newData);
+          
+          if (currentDataHash !== newDataHash) {
+  console.log('Auto-update: Data has changed, updating dashboard...');
+  
+  // Save current filter state
+  const savedStartWeek = activeStartWeek;
+  const savedEndWeek = activeEndWeek;
+  
+  employeesData = newData;
+  updateWeekRangeOptions(employeesData);
+  
+  // Validate saved filters against new data
+  const availableWeeks = [...new Set(employeesData.map(row => row['Week Range']).filter(Boolean))];
+  
+  // Check if saved weeks still exist
+  if (savedStartWeek !== 'all' && !availableWeeks.includes(savedStartWeek)) {
+    activeStartWeek = 'all';
+    document.getElementById('start-week').value = 'all';
+  } else {
+    activeStartWeek = savedStartWeek;
+  }
+  
+  if (savedEndWeek !== 'all' && !availableWeeks.includes(savedEndWeek)) {
+    activeEndWeek = 'all';
+    document.getElementById('end-week').value = 'all';
+  } else {
+    activeEndWeek = savedEndWeek;
+  }
+  
+  // Re-apply filters
+  if (activeStartWeek !== 'all' || activeEndWeek !== 'all') {
+    applyDateFilter();
+  } else {
+    filteredEmployeesData = [...employeesData];
+  }
+  
+  updateAllEmployeeCharts();
+            
+            // Show brief update notification
+            showUpdateNotification('Dashboard updated with latest data from Google Sheets');
+          } else {
+            console.log('Auto-update: No changes detected in data');
+          }
+        }
+      } catch (error) {
+        console.error('Auto-update failed:', error);
+        // Don't show error notifications for auto-updates to avoid being annoying
+      }
+    } else {
+      console.log('Auto-update: Skipping because using uploaded/test data');
+    }
+  }, AUTO_UPDATE_INTERVAL_MINUTES * 60 * 1000);
+}
+
+// Stop automatic updates
+function stopAutoUpdate() {
+  if (autoUpdateInterval) {
+    clearInterval(autoUpdateInterval);
+    autoUpdateInterval = null;
+    console.log('Auto-update stopped');
+  }
+}
+
+// Show brief update notification
+function showUpdateNotification(message) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #059669;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    font-size: 14px;
+    font-weight: 500;
+    animation: slideInRight 0.3s ease-out;
+  `;
+  
+  notification.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+      <span>${message}</span>
+    </div>
+  `;
+  
+  // Add CSS animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  document.body.appendChild(notification);
+  
+  // Auto-remove after 4 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+    setTimeout(() => {
+      if (notification.parentElement) {
+        notification.remove();
+      }
+    }, 300);
+  }, 4000);
+}
+
+// Manual trigger for testing auto-update
+window.triggerAutoUpdate = async function() {
+  console.log('Manually triggering auto-update...');
+  if (lastDataSource !== 'google_sheets') {
+    console.warn('Auto-update only works with Google Sheets data. Current source:', lastDataSource);
+    return;
+  }
+  
+  try {
+    const newData = await fetchEmployeeData(true);
+    if (newData && newData.length > 0) {
+      const currentDataHash = JSON.stringify(employeesData);
+      const newDataHash = JSON.stringify(newData);
+      
+      if (currentDataHash !== newDataHash) {
+        console.log('Data has changed!');
+        employeesData = newData;
+        filteredEmployeesData = [...employeesData];
+        updateWeekRangeOptions(employeesData);
+        
+        if (activeStartWeek !== 'all' || activeEndWeek !== 'all') {
+          applyDateFilter();
+        }
+        
+        updateAllEmployeeCharts();
+        showUpdateNotification('Manual update: Dashboard refreshed with latest data');
+      } else {
+        console.log('No changes detected in data');
+        showUpdateNotification('Manual update: Data is already up to date');
+      }
+    }
+  } catch (error) {
+    console.error('Manual update failed:', error);
+    alert('Manual update failed: ' + error.message);
+  }
+};
+
+// Start auto-updates when page loads (add this to the end of DOMContentLoaded)
+// This will be added in the next step
+</script>
+    
+</body>
+</html>
